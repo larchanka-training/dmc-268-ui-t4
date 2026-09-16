@@ -35,6 +35,9 @@ pnpm dev
 | `pnpm format`      | Prettier over the repository                  |
 | `pnpm test`        | Vitest (domain and application layers)        |
 
+With the mocks enabled the console runs without a backend: open `/runs`, pick a run and
+use `?mock=owner|member|admin|idle` to switch role and state.
+
 ## Git hooks
 
 Husky runs:

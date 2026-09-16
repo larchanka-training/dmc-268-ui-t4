@@ -8,8 +8,9 @@ Frontend console for DMC-268 Team 4: an AI code review service for GitHub pull r
 The backend (a GitHub App) reviews PRs and publishes findings to GitHub; this app covers
 billing, agent runs with their findings and diffs, and an admin view of subscriptions.
 
-Stack: pnpm 12, Node >= 24, React 19, Vite 8, TypeScript 6, Tailwind v4.
-Planned (architecture PR): TanStack Router, TanStack Query, Zustand, Zod, shadcn/ui, MSW.
+Stack: pnpm 12, Node >= 24, React 19, Vite 8, TypeScript 6, Tailwind v4 + shadcn/ui (Radix),
+TanStack Router, TanStack Query, Zustand, Zod 4, MSW, Vitest.
+The architecture is documented in FRONTEND_ARCHITECTURE.md.
 
 ## Commands
 
@@ -28,7 +29,7 @@ pnpm test           # Vitest, node environment
 
 ## Architecture
 
-Clean Architecture inside vertical modules (the structure is created in the architecture PR):
+Clean Architecture inside vertical modules:
 
 ```
 src/
@@ -61,6 +62,16 @@ ephemeral UI state in Zustand. Domain and application layers stay free of React.
 - TypeScript is strict, including `noUncheckedIndexedAccess`, `verbatimModuleSyntax` and
   `erasableSyntaxOnly` — use union literals and `as const` instead of `enum`.
 - Commits follow Conventional Commits; the scope matches a module (`feat(runs): ...`).
+
+## Working with the app
+
+- Mocks run in dev (`VITE_ENABLE_MOCKS=true`) and in `pnpm build:demo`; a normal `pnpm build`
+  drops MSW and the fixtures through the build-time `MOCKS_AVAILABLE` flag.
+- `?mock=owner|member|admin|idle` switches the mock scenario (role, active runs).
+- Fixtures live in `src/shared/mocks/state.ts` in the wire format, so they go through the
+  Zod schemas and mappers like a real response.
+- Zustand selectors must not build new objects (`state.x[id] ?? []` re-renders forever);
+  select the raw value and fall back to a module-level constant.
 
 ## Notes
 

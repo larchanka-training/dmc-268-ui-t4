@@ -33,10 +33,16 @@ const boundariesElements = [
 ];
 
 /** A layer of the module the importing file belongs to. */
-const sameModuleLayer = (layer: string) => [
-  "module-layer",
-  { module: "${from.module}", layer },
-];
+const sameModuleLayer = (layer: string) => ({
+  to: {
+    element: {
+      type: "module-layer",
+      captured: { module: "{{from.captured.module}}", layer },
+    },
+  },
+});
+
+const toElement = (type: string) => ({ to: { element: { type } } });
 
 export default defineConfig(
   { ignores: ["dist", "coverage", "node_modules", "**/*.gen.ts"] },
@@ -71,6 +77,8 @@ export default defineConfig(
     settings: {
       "boundaries/elements": boundariesElements,
       "boundaries/include": ["src/**/*"],
+      // eslint-plugin-boundaries resolves the "@/" alias through this resolver too.
+      "import/resolver": { typescript: { project: ["tsconfig.app.json"] } },
       "import-x/resolver-next": [
         createTypeScriptImportResolver({
           project: ["tsconfig.app.json", "tsconfig.node.json"],
@@ -91,6 +99,19 @@ export default defineConfig(
         { fixStyle: "inline-type-imports" },
       ],
       "@typescript-eslint/switch-exhaustiveness-check": "error",
+      // TanStack Router navigates out of a guard by throwing a Redirect, which is not an Error.
+      "@typescript-eslint/only-throw-error": [
+        "error",
+        {
+          allow: [
+            {
+              from: "package",
+              package: "@tanstack/router-core",
+              name: "Redirect",
+            },
+          ],
+        },
+      ],
       "import-x/no-default-export": "error",
       "import-x/order": [
         "error",
@@ -116,61 +137,111 @@ export default defineConfig(
       "better-tailwindcss/no-deprecated-classes": "error",
 
       "boundaries/no-unknown-files": "off",
-      "boundaries/element-types": [
+      "boundaries/dependencies": [
         "error",
         {
           default: "disallow",
-          message: "${file.type} is not allowed to import ${dependency.type}",
-          rules: [
+          message:
+            "{{from.element.type}} is not allowed to import {{to.element.type}}",
+          policies: [
             // The composition root wires modules together through their public APIs.
-            { from: ["app"], allow: ["app", "module-api", "shared"] },
+            {
+              from: { element: { type: "app" } },
+              allow: [
+                toElement("app"),
+                toElement("module-api"),
+                toElement("shared"),
+              ],
+            },
 
             // A module's public API may re-export anything from that same module.
             {
-              from: ["module-api"],
-              allow: [["module-layer", { module: "${from.module}" }], "shared"],
+              from: { element: { type: "module-api" } },
+              allow: [
+                {
+                  to: {
+                    element: {
+                      type: "module-layer",
+                      captured: { module: "{{from.captured.module}}" },
+                    },
+                  },
+                },
+                toElement("shared"),
+              ],
             },
 
             // Clean Architecture: dependencies point inwards, towards the domain.
             {
-              from: [["module-layer", { layer: "domain" }]],
-              allow: [sameModuleLayer("domain"), "shared"],
+              from: {
+                element: {
+                  type: "module-layer",
+                  captured: { layer: "domain" },
+                },
+              },
+              allow: [sameModuleLayer("domain"), toElement("shared")],
             },
             {
-              from: [["module-layer", { layer: "application" }]],
+              from: {
+                element: {
+                  type: "module-layer",
+                  captured: { layer: "application" },
+                },
+              },
               allow: [
                 sameModuleLayer("application"),
                 sameModuleLayer("domain"),
-                "shared",
+                toElement("shared"),
               ],
             },
             {
-              from: [["module-layer", { layer: "infrastructure" }]],
+              from: {
+                element: {
+                  type: "module-layer",
+                  captured: { layer: "infrastructure" },
+                },
+              },
               allow: [
                 sameModuleLayer("infrastructure"),
                 sameModuleLayer("application"),
                 sameModuleLayer("domain"),
-                "shared",
+                toElement("shared"),
               ],
             },
             {
-              from: [["module-layer", { layer: "presentation" }]],
+              from: {
+                element: {
+                  type: "module-layer",
+                  captured: { layer: "presentation" },
+                },
+              },
               allow: [
                 sameModuleLayer("presentation"),
                 sameModuleLayer("application"),
                 sameModuleLayer("domain"),
-                "module-api",
-                "shared",
+                toElement("module-api"),
+                toElement("shared"),
               ],
             },
 
             // shared/ knows nothing about the modules built on top of it.
-            { from: ["shared"], allow: ["shared"] },
+            {
+              from: { element: { type: "shared" } },
+              allow: [toElement("shared")],
+            },
 
             // Only the router (in app/) may pull in the admin module, and it does so lazily.
             {
-              from: ["module-layer"],
-              disallow: [["module-api", { module: "admin" }]],
+              from: { element: { type: "module-layer" } },
+              disallow: [
+                {
+                  to: {
+                    element: {
+                      type: "module-api",
+                      captured: { module: "admin" },
+                    },
+                  },
+                },
+              ],
               message:
                 "The admin module is isolated and may only be loaded by the router in app/",
             },
@@ -180,12 +251,30 @@ export default defineConfig(
     },
   },
 
+  // shadcn/ui components are generated by its CLI and re-generated on updates, so they
+  // are treated as vendored code rather than hand-written source.
+  {
+    files: ["src/shared/ui/**/*.tsx"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
+
+  // Query hooks get their use cases from the DI context. Those are app-wide singletons,
+  // so putting them in the query key would only add noise to the cache.
+  {
+    files: ["src/modules/*/presentation/queries.ts"],
+    rules: {
+      "@tanstack/query/exhaustive-deps": "off",
+    },
+  },
+
   // Tests may import test helpers freely and use non-null assertions.
   {
     files: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     rules: {
       "@typescript-eslint/no-non-null-assertion": "off",
-      "boundaries/element-types": "off",
+      "boundaries/dependencies": "off",
     },
   },
 
