@@ -1,0 +1,4 @@
+pnpm check-types
+pnpm lint
+pnpm lint:css
+pnpm test
