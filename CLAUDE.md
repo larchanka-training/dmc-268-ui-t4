@@ -73,6 +73,11 @@ ephemeral UI state in Zustand. Domain and application layers stay free of React.
 - Zustand selectors must not build new objects (`state.x[id] ?? []` re-renders forever);
   select the raw value and fall back to a module-level constant.
 
+## CI
+
+`.github/workflows/ci.yml` runs the same checks as the hooks plus `format:check` and
+`build`. Keep the workflow and the `pre-push` hook in step when adding a script.
+
 ## Notes
 
 - pnpm 12 blocks packages published less than 24 hours ago (supply-chain policy). `vitest` is

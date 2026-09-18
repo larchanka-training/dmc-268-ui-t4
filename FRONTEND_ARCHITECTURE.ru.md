@@ -216,7 +216,9 @@ Zustand · Zod 4 · Tailwind v4 + shadcn/ui (Radix) · MSW · Vitest.
 
 `pnpm lint` (ESLint 10 с проверкой типов и границами слоёв), `pnpm lint:css`,
 `pnpm check-types`, `pnpm test`, `pnpm build`. Husky запускает lint-staged на коммите и
-полный набор на пуше, сообщения коммитов — Conventional Commits.
+полный набор на пуше, сообщения коммитов — Conventional Commits. Те же проверки плюс
+`format:check` выполняются в GitHub Actions на каждом pull request: хуки можно обойти через
+`--no-verify`, CI — нет.
 
 ## 10. Решения и их причины
 
@@ -235,4 +237,4 @@ Zustand · Zod 4 · Tailwind v4 + shadcn/ui (Radix) · MSW · Vitest.
 ## 11. Что дальше
 
 Экраны биллинга и редиректы в Stripe, таблица админки, публичная страница тарифов,
-подсветка синтаксиса, split-режим, SSE вместо polling, компонентные и e2e тесты, CI.
+подсветка синтаксиса, split-режим, SSE вместо polling, компонентные и e2e тесты.

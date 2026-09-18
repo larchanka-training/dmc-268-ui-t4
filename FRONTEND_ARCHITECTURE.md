@@ -219,7 +219,9 @@ Zustand · Zod 4 · Tailwind v4 + shadcn/ui (Radix) · MSW · Vitest.
 
 `pnpm lint` (ESLint 10, type-aware, with architecture boundaries), `pnpm lint:css`,
 `pnpm check-types`, `pnpm test`, `pnpm build`. Husky runs lint-staged on commit and the
-full set on push; commit messages follow Conventional Commits.
+full set on push; commit messages follow Conventional Commits. The same checks, plus
+`format:check`, run on every pull request in GitHub Actions — hooks can be skipped with
+`--no-verify`, CI cannot.
 
 ## 10. Decisions and their reasons
 
@@ -238,4 +240,4 @@ full set on push; commit messages follow Conventional Commits.
 ## 11. Next steps
 
 Billing screens and Stripe redirects, the admin table, the public pricing page, syntax
-highlighting, split view, SSE instead of polling, component and e2e tests, CI.
+highlighting, split view, SSE instead of polling, component and e2e tests.
