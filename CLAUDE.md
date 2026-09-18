@@ -62,6 +62,11 @@ ephemeral UI state in Zustand. Domain and application layers stay free of React.
   `erasableSyntaxOnly` — use union literals and `as const` instead of `enum`.
 - Commits follow Conventional Commits; the scope matches a module (`feat(runs): ...`).
 
+## CI
+
+`.github/workflows/ci.yml` runs the same checks as the hooks plus `format:check` and
+`build`. Keep the workflow and the `pre-push` hook in step when adding a script.
+
 ## Notes
 
 - pnpm 12 blocks packages published less than 24 hours ago (supply-chain policy). `vitest` is

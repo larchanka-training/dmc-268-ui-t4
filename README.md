@@ -44,4 +44,10 @@ Husky runs:
 - **commit-msg** — commitlint with Conventional Commits, e.g. `feat(runs): add polling`.
 
 Hooks are installed by `pnpm install` (the `prepare` script). They can be bypassed with
-`git commit --no-verify`, so they are a convenience, not a guarantee.
+`git commit --no-verify`, so the guarantee comes from CI.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
+`check-types`, `lint`, `lint:css`, `format:check`, `test` and `build`, on the Node version
+in `.nvmrc` with the pnpm store cached.
