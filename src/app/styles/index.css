@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* Dark theme is opt-in via a class on <html>, set from the user preference or the system setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Semantic tokens. Every colour used in the app must come from here so that both
+ * themes stay in sync (diff backgrounds and severity colours included).
+ */
+@theme {
+  --color-surface: oklch(100% 0 0deg);
+  --color-surface-muted: oklch(97% 0.002 250deg);
+  --color-border: oklch(90% 0.004 250deg);
+  --color-content: oklch(25% 0.01 250deg);
+  --color-content-muted: oklch(52% 0.014 250deg);
+  --color-diff-added-bg: oklch(94% 0.05 150deg);
+  --color-diff-added-gutter: oklch(88% 0.08 150deg);
+  --color-diff-removed-bg: oklch(94% 0.05 25deg);
+  --color-diff-removed-gutter: oklch(88% 0.08 25deg);
+  --color-diff-context-bg: oklch(100% 0 0deg);
+  --color-severity-critical: oklch(52% 0.2 25deg);
+  --color-severity-high: oklch(62% 0.17 45deg);
+  --color-severity-medium: oklch(72% 0.13 85deg);
+  --color-severity-low: oklch(60% 0.06 250deg);
+}
+
+.dark {
+  --color-surface: oklch(21% 0.012 260deg);
+  --color-surface-muted: oklch(26% 0.012 260deg);
+  --color-border: oklch(34% 0.012 260deg);
+  --color-content: oklch(93% 0.005 260deg);
+  --color-content-muted: oklch(72% 0.012 260deg);
+  --color-diff-added-bg: oklch(32% 0.06 150deg);
+  --color-diff-added-gutter: oklch(40% 0.09 150deg);
+  --color-diff-removed-bg: oklch(32% 0.06 25deg);
+  --color-diff-removed-gutter: oklch(40% 0.09 25deg);
+  --color-diff-context-bg: oklch(21% 0.012 260deg);
+  --color-severity-critical: oklch(68% 0.18 25deg);
+  --color-severity-high: oklch(74% 0.15 45deg);
+  --color-severity-medium: oklch(82% 0.12 85deg);
+  --color-severity-low: oklch(72% 0.05 250deg);
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  color: var(--color-content);
+  background-color: var(--color-surface);
+}

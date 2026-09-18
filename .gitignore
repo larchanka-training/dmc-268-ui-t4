@@ -1,5 +1,10 @@
 node_modules/
 dist/
+coverage/
 .env
 .env.local
 *.log
+.DS_Store
+
+# Local Claude Code settings
+.claude/settings.local.json
