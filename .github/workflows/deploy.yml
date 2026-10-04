@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main, devops/frontend-cd] # TEMP: devops/frontend-cd is removed before the PR
+    branches: [main]
   workflow_dispatch:
 
 permissions:
