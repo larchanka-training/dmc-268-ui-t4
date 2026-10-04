@@ -1,0 +1,138 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-frontend
+  cancel-in-progress: false
+
+env:
+  FRONTEND_DIR: /opt/dmc268/frontend
+
+jobs:
+  deploy:
+    name: Build and deploy to the VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+
+    steps:
+      - name: Check inputs
+        env:
+          HAS_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS != '' }}
+          HAS_DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY != '' }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -n "$DEPLOY_HOST" ] || missing+=(secrets.DEPLOY_HOST)
+          [ "$HAS_KNOWN_HOSTS" = true ] || missing+=(secrets.DEPLOY_KNOWN_HOSTS)
+          [ "$HAS_DEPLOY_KEY" = true ] || missing+=(secrets.DEPLOY_SSH_KEY)
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "**Deploy not started:** missing ${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::missing ${missing[*]}"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+
+      # The pnpm version comes from the "packageManager" field in package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The API lives on the same host behind Caddy, so the relative /api is enough.
+      - name: Build
+        env:
+          VITE_API_BASE_URL: /api
+        run: pnpm build
+
+      - name: Set up SSH
+        env:
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          printf 'Host deploy-target\n  HostName %s\n  User deploy\n  Port 22\n  StrictHostKeyChecking yes\n  BatchMode yes\n  ConnectTimeout 15\n  LogLevel ERROR\n' "$DEPLOY_HOST" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          agent_sock="$RUNNER_TEMP/ssh-agent.sock"
+          eval "$(ssh-agent -s -a "$agent_sock")" >/dev/null
+          printf '%s\n' "$DEPLOY_SSH_KEY" | ssh-add -q -
+          echo "SSH_AUTH_SOCK=$agent_sock" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+          if ! out=$(ssh deploy-target true 2>&1); then
+            case "$out" in
+              *"Permission denied"*) reason="permission denied for deploy (check DEPLOY_SSH_KEY)" ;;
+              *"Host key verification failed"*) reason="host key does not match DEPLOY_KNOWN_HOSTS" ;;
+              *"timed out"*) reason="timeout: SSH connection timed out" ;;
+              *"Connection refused"*) reason="connection refused on port 22" ;;
+              *) reason="ssh failed: $(printf '%s' "$out" | head -n 1)" ;;
+            esac
+            echo "**Deploy failed:** $reason" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::$reason"
+            exit 1
+          fi
+
+      - name: Upload the build
+        run: |
+          set -euo pipefail
+          if ! ssh deploy-target "command -v rsync >/dev/null"; then
+            echo "**Deploy failed:** rsync is not installed on the server; add it to ops/bootstrap.sh in dmc-268-api-t4" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error::rsync is not installed on the server"
+            exit 1
+          fi
+          rsync -az --delete --stats dist/ "deploy-target:$FRONTEND_DIR/" | grep -E '^(Number of (regular )?files transferred|Total transferred file size)'
+
+      - name: Smoke test from the internet
+        run: |
+          set -uo pipefail
+          expected=$(sha256sum dist/index.html | cut -d' ' -f1)
+          asset=$(grep -o -m1 -E '/assets/[^"]+\.js' dist/index.html || true)
+          fetch() { curl -fsS --max-time 10 "http://$DEPLOY_HOST$1" 2>/dev/null; }
+          check_index() {
+            local body_hash
+            body_hash=$(fetch "$1" | sha256sum | cut -d' ' -f1)
+            [ "$body_hash" = "$expected" ]
+          }
+          failures=()
+          check_index / || failures+=("/ is not the deployed index.html")
+          check_index /runs/smoke-test-unknown-route || failures+=("an SPA route is not served index.html")
+          if [ -n "$asset" ]; then
+            fetch "$asset" >/dev/null || failures+=("bundle $asset is missing")
+          fi
+          health=$(fetch /api/health || true)
+          [ "$health" = '{"status":"ok"}' ] || failures+=("/api/health answered '$health'")
+          if [ "${#failures[@]}" -gt 0 ]; then
+            {
+              echo "**Deploy failed:**"
+              printf -- '- %s\n' "${failures[@]}"
+            } >> "$GITHUB_STEP_SUMMARY"
+            printf '::error::%s\n' "${failures[@]}"
+            exit 1
+          fi
+          echo "index.html, SPA route, bundle and /api/health are served"
+          {
+            echo "## Deploy"
+            echo "- \`/\` and \`/runs/smoke-test-unknown-route\` serve the deployed \`index.html\` (sha256 \`${expected:0:12}…\`)"
+            echo "- bundle \`$asset\`: 200"
+            echo "- \`/api/health\`: \`$health\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stop SSH agent
+        if: always()
+        run: ssh-agent -k >/dev/null 2>&1 || true
