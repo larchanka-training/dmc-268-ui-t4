@@ -33,10 +33,24 @@ pnpm dev
 | `pnpm lint`        | ESLint, warnings treated as errors            |
 | `pnpm lint:css`    | Stylelint over `src/**/*.css`                 |
 | `pnpm format`      | Prettier over the repository                  |
-| `pnpm test`        | Vitest (domain and application layers)        |
+| `pnpm test`        | Vitest in Node: logic, adapters, routes       |
 
 With the mocks enabled the console runs without a backend: open `/runs`, pick a run and
-use `?mock=owner|member|admin|idle` to switch role and state.
+use `?mock=owner|member|admin|idle` to switch role and state, or
+`?mock=signed-out|denied|no-orgs|expired` to walk through sign-in, or `?mock=no-repos` for
+an organisation without connected repositories. `pnpm build:demo` turns the
+mocks on by itself; setting `VITE_ENABLE_MOCKS` explicitly still overrides it.
+
+### Running against a real backend
+
+Set `VITE_ENABLE_MOCKS=false` and `API_PROXY_TARGET` (the backend origin, e.g.
+`http://localhost:8000`) in `.env.local`. The dev server then proxies `/api` to it, so the
+session cookie is same-site, as in production. The backend's `Origin` check must accept the
+dev origin (`http://localhost:5173`).
+
+The proxy **strips the `/api` prefix**: the backend serves `/me`, `/auth/github` and
+`/auth/logout` with no prefix, and in production the reverse proxy strips it the same way.
+So `VITE_API_BASE_URL=/api` stays correct on both sides.
 
 ## Git hooks
 
@@ -52,5 +66,5 @@ Hooks are installed by `pnpm install` (the `prepare` script). They can be bypass
 ## CI
 
 `.github/workflows/ci.yml` runs on every pull request and on pushes to `main`:
-`check-types`, `lint`, `lint:css`, `format:check`, `test` and `build`, on the Node version
+`check-types`, `lint`, `lint:css`, `format:check`, `test`, `build` and `build:demo`, on the Node version
 in `.nvmrc` with the pnpm store cached.

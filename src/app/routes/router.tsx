@@ -5,18 +5,37 @@ import {
   createRoute,
   createRouter,
   lazyRouteComponent,
+  type RouterHistory,
   redirect,
   useNavigate,
 } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { type Session, can, sessionQueryOptions } from "@/modules/auth";
-import { LoginPage } from "@/modules/auth";
+import {
+  AuthCallbackPage,
+  LoginPage,
+  type Session,
+  SignInSuccessPage,
+  can,
+  completeSignIn,
+  sessionQueryKey,
+  sessionQueryOptions,
+  signInDestination,
+} from "@/modules/auth";
 import { BillingPage, PricingPage } from "@/modules/billing";
+import {
+  RepositoriesPage,
+  announceRepositoriesConnected,
+  repositoriesQueryKeys,
+} from "@/modules/repositories";
 import { type RunFilters, RunDetailsPage, RunsPage } from "@/modules/runs";
 
 import { type AppDependencies } from "../composition/dependencies";
 import { ConsoleLayout } from "../layouts/console-layout";
+import { OverviewPage } from "../pages/overview-page";
+
+import { NotFoundPage } from "./not-found-page";
+import { RouteErrorPage } from "./route-error-page";
 
 export interface RouterContext {
   readonly queryClient: QueryClient;
@@ -34,31 +53,104 @@ const pricingRoute = createRoute({
   component: PricingPage,
 });
 
-const loginSearchSchema = z.object({ returnTo: z.string().optional() });
+/** Both values are untrusted: the page sanitises returnTo and parses error itself. */
+const loginSearchSchema = z.object({
+  returnTo: z.string().optional(),
+  error: z.string().optional(),
+});
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
   validateSearch: loginSearchSchema,
-  component: function LoginRoute() {
-    const { returnTo } = loginRoute.useSearch();
+  beforeLoad: async ({ context, search }) => {
+    let session: Session | null = null;
 
-    return <LoginPage returnTo={returnTo ?? "/runs"} />;
+    try {
+      session = await context.queryClient.query(
+        sessionQueryOptions(context.dependencies.auth),
+      );
+    } catch {
+      // The backend is unreachable: signing in is still the right thing to offer.
+    }
+
+    if (session !== null) {
+      throw redirect({
+        href: signInDestination(session, search.returnTo),
+        replace: true,
+      });
+    }
   },
+  component: function LoginRoute() {
+    const { returnTo, error } = loginRoute.useSearch();
+
+    return <LoginPage returnTo={returnTo} error={error} />;
+  },
+});
+
+/** The backend's redirect after GitHub: the outcome only, never a credential. */
+const authCallbackSearchSchema = z.object({
+  result: z.string().optional(),
+  return_to: z.string().optional(),
+});
+
+const authCallbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/auth/callback",
+  validateSearch: authCallbackSearchSchema,
+  beforeLoad: async ({ context, search }) => {
+    const outcome = await completeSignIn(context.dependencies.auth, {
+      result: search.result,
+      returnTo: search.return_to,
+    });
+
+    if (outcome.kind === "failed") {
+      throw redirect({
+        to: "/login",
+        search: { error: outcome.error, returnTo: search.return_to },
+        replace: true,
+      });
+    }
+
+    context.queryClient.setQueryData(sessionQueryKey, outcome.session);
+
+    // Back must not lead into the callback again. The router already commits only the
+    // final location of a redirect chain; replace keeps that true if it ever changes.
+    throw redirect({ href: outcome.destination, replace: true });
+  },
+  pendingComponent: AuthCallbackPage,
+  pendingMs: 0,
+  component: AuthCallbackPage,
+});
+
+const authSuccessRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/auth/success",
+  beforeLoad: async ({ context }) => {
+    const session = await context.queryClient.query(
+      sessionQueryOptions(context.dependencies.auth),
+    );
+
+    if (session === null) {
+      throw redirect({ to: "/login", search: {} });
+    }
+  },
+  component: SignInSuccessPage,
 });
 
 /**
  * Everything below requires a session. The guard prefetches it through the same query
- * cache the components use, so the page renders without a second request.
+ * cache the components use, so the page renders without a second request. The cached
+ * session goes stale after five minutes, so a revoked session is noticed on navigation
+ * even before an API call fails with a 401.
  */
 const consoleRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "console",
   beforeLoad: async ({ context, location }): Promise<{ session: Session }> => {
-    const session = await context.queryClient.query({
-      ...sessionQueryOptions(context.dependencies.auth),
-      staleTime: "static",
-    });
+    const session = await context.queryClient.query(
+      sessionQueryOptions(context.dependencies.auth),
+    );
 
     if (session === null) {
       throw redirect({ to: "/login", search: { returnTo: location.href } });
@@ -72,9 +164,38 @@ const consoleRoute = createRoute({
 const indexRoute = createRoute({
   getParentRoute: () => consoleRoute,
   path: "/",
-  beforeLoad: () => {
-    throw redirect({ to: "/runs", search: { status: "all" as const } });
+  component: OverviewPage,
+});
+
+/**
+ * `connected=1` is where GitHub's Setup URL sends the user back after connecting. The
+ * router parses search values as JSON, so the flag arrives as the number 1.
+ */
+const repositoriesSearchSchema = z.object({
+  connected: z
+    .union([z.literal(1), z.literal("1")])
+    .optional()
+    .catch(undefined),
+});
+
+const repositoriesRoute = createRoute({
+  getParentRoute: () => consoleRoute,
+  path: "/repositories",
+  validateSearch: repositoriesSearchSchema,
+  beforeLoad: ({ context, search }) => {
+    if (search.connected === undefined) {
+      return;
+    }
+
+    announceRepositoriesConnected();
+    void context.queryClient.invalidateQueries({
+      queryKey: repositoriesQueryKeys.all,
+    });
+
+    // Without the flag in the URL, a reload does not announce the change again.
+    throw redirect({ to: "/repositories", search: {}, replace: true });
   },
+  component: RepositoriesPage,
 });
 
 /** Filters live in the URL; anything unexpected falls back instead of reaching the UI. */
@@ -166,8 +287,11 @@ const adminRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   pricingRoute,
   loginRoute,
+  authCallbackRoute,
+  authSuccessRoute,
   consoleRoute.addChildren([
     indexRoute,
+    repositoriesRoute,
     runsRoute,
     runDetailsRoute,
     billingRoute,
@@ -175,8 +299,22 @@ const routeTree = rootRoute.addChildren([
   ]),
 ]);
 
-export function createAppRouter(context: RouterContext) {
-  return createRouter({ routeTree, context, defaultPreload: "intent" });
+/**
+ * @param options for tests: an in-memory history, and `isServer: false` so the router
+ * follows redirects in Node the way it does in the browser.
+ */
+export function createAppRouter(
+  context: RouterContext,
+  options: { history?: RouterHistory; isServer?: boolean } = {},
+) {
+  return createRouter({
+    routeTree,
+    context,
+    ...options,
+    defaultPreload: "intent",
+    defaultErrorComponent: RouteErrorPage,
+    defaultNotFoundComponent: NotFoundPage,
+  });
 }
 
 declare module "@tanstack/react-router" {

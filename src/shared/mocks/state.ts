@@ -13,7 +13,11 @@ const ORG = {
 
 export type MockRole = "member" | "owner" | "platform-admin";
 
-export function sessionFor(role: MockRole) {
+/**
+ * The GET /me answer. Without an organisation the user signed in, but the app is not
+ * installed anywhere they belong.
+ */
+export function sessionFor(role: MockRole, hasOrganization = true) {
   return {
     user: {
       id: "u_octocat",
@@ -22,10 +26,47 @@ export function sessionFor(role: MockRole) {
       avatar_url: "https://avatars.githubusercontent.com/u/583231?v=4",
       is_platform_admin: role === "platform-admin",
     },
-    organizations: [{ ...ORG, role: role === "owner" ? "owner" : "member" }],
-    current_organization_id: ORG.id,
+    organizations: hasOrganization
+      ? [{ ...ORG, role: role === "owner" ? "owner" : "member" }]
+      : [],
+    current_organization_id: hasOrganization ? ORG.id : null,
   };
 }
+
+/** Connected repositories of the "acme" organisation, in the wire format. */
+export const REPOSITORIES = [
+  ["api", true, "2026-10-03T09:12:00.000Z"],
+  ["payments", true, "2026-10-02T08:30:00.000Z"],
+  ["web", false, "2026-09-30T16:45:00.000Z"],
+  ["mobile", true, null],
+  ["billing", true, "2026-09-12T11:00:00.000Z"],
+  ["docs", false, "2026-08-28T10:20:00.000Z"],
+  ["infra", true, null],
+  ["auth-service", true, "2026-09-25T13:05:00.000Z"],
+  ["design-system", false, "2026-09-18T15:40:00.000Z"],
+  ["analytics", true, null],
+  ["notifications", true, "2026-09-05T07:55:00.000Z"],
+].map(([name, isPrivate, lastRunAt], index) => ({
+  id: `repo_${String(index + 1)}`,
+  owner: ORG.login,
+  name: String(name),
+  private: isPrivate === true,
+  default_branch: "main",
+  html_url: `https://github.com/${ORG.login}/${String(name)}`,
+  // Alternating, so both renderings stay exercised: the backend sends null for
+  // every repository today, but the field may be filled in later.
+  connected_at: index % 2 === 0 ? "2026-08-15T10:00:00.000Z" : null,
+  last_run_at: typeof lastRunAt === "string" ? lastRunAt : null,
+}));
+
+/** What "connecting" adds in mock mode, one per click, in this order. */
+export const REPOSITORIES_TO_CONNECT = [
+  "search",
+  "worker",
+  "cli",
+  "sdk",
+  "status-page",
+];
 
 const PULL_REQUEST = {
   owner: "acme",

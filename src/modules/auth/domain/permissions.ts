@@ -1,7 +1,12 @@
 import { type Session, currentOrganization } from "./session";
 
 export type Action =
-  "runs:view" | "billing:view" | "billing:manage" | "admin:view";
+  | "runs:view"
+  | "billing:view"
+  | "billing:manage"
+  | "repositories:connect"
+  | "repositories:disconnect"
+  | "admin:view";
 
 /**
  * Permission checks used to hide UI a user cannot act on. The backend enforces the same
@@ -22,7 +27,12 @@ export function can(session: Session | null, action: Action): boolean {
     return false;
   }
 
-  if (action === "billing:manage") {
+  // On GitHub only owners may change which repositories an installation can access.
+  if (
+    action === "billing:manage" ||
+    action === "repositories:connect" ||
+    action === "repositories:disconnect"
+  ) {
     return organization.role === "owner";
   }
 

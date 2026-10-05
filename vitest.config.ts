@@ -2,7 +2,8 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
 
-// Only pure logic (domain and application layers) is tested, so no DOM environment is needed.
+// Tests cover logic, adapters (against fakes) and route guards (in-memory history); nothing
+// renders, so no DOM environment is needed, and fetch is always stubbed: no network.
 export default defineConfig({
   resolve: {
     alias: {
@@ -11,7 +12,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "eslint-rules/**/*.test.ts"],
     passWithNoTests: true,
   },
 });

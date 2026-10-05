@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 
 import { AuthDependenciesProvider } from "@/modules/auth";
+import { RepositoriesDependenciesProvider } from "@/modules/repositories";
 import { RunsDependenciesProvider } from "@/modules/runs";
 
 import { type AppDependencies } from "../composition/dependencies";
@@ -16,7 +17,9 @@ export function AppProviders({
   return (
     <AuthDependenciesProvider value={dependencies.auth}>
       <RunsDependenciesProvider value={dependencies.runs}>
-        {children}
+        <RepositoriesDependenciesProvider value={dependencies.repositories}>
+          {children}
+        </RepositoriesDependenciesProvider>
       </RunsDependenciesProvider>
     </AuthDependenciesProvider>
   );
