@@ -30,6 +30,12 @@ jobs:
           HAS_DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY != '' }}
         run: |
           set -euo pipefail
+          # The site name embeds the server IP: mask it before anything can print it.
+          if [ -n "$DEPLOY_HOST" ]; then
+            echo "::add-mask::${DEPLOY_HOST//./-}"
+            echo "::add-mask::${DEPLOY_HOST//./-}.sslip.io"
+            echo "SITE_ADDRESS=${DEPLOY_HOST//./-}.sslip.io" >> "$GITHUB_ENV"
+          fi
           missing=()
           [ -n "$DEPLOY_HOST" ] || missing+=(secrets.DEPLOY_HOST)
           [ "$HAS_KNOWN_HOSTS" = true ] || missing+=(secrets.DEPLOY_KNOWN_HOSTS)
@@ -103,7 +109,8 @@ jobs:
           set -uo pipefail
           expected=$(sha256sum dist/index.html | cut -d' ' -f1)
           asset=$(grep -o -m1 -E '/assets/[^"]+\.js' dist/index.html || true)
-          fetch() { curl -fsS --max-time 10 "http://$DEPLOY_HOST$1" 2>/dev/null; }
+          # HTTPS on the sslip.io name, certificate verified (no -k).
+          fetch() { curl -fsS --max-time 10 "https://$SITE_ADDRESS$1" 2>/dev/null; }
           check_index() {
             local body_hash
             body_hash=$(fetch "$1" | sha256sum | cut -d' ' -f1)
