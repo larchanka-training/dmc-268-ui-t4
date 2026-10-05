@@ -1,6 +1,8 @@
 import { HttpResponse, http } from "msw";
 
+import { createMockRepositories } from "./repositories";
 import { currentScenario } from "./scenario";
+import { browserStorage, createMockSession } from "./session";
 import {
   PAYMENT_SERVICE_FILE,
   activeRun,
@@ -19,22 +21,102 @@ const BASE = "/api";
 const history = [completedRun, failedRun, ...olderRuns];
 const PAGE_SIZE = 8;
 
+const scenario = currentScenario();
+
+// Created when the mocks start, i.e. on every full page load, before the app renders.
+const session = createMockSession({
+  scenario,
+  storage: browserStorage(),
+  location: window.location,
+});
+
+const repositories = createMockRepositories({
+  scenario,
+  storage: browserStorage(),
+});
+
+const unauthorized = () =>
+  HttpResponse.json({ error: "no_session" }, { status: 401 });
+
 /**
  * Mock backend. The handlers speak the same contract the real API is expected to
- * implement, so switching to it is a matter of turning the mocks off.
+ * implement, so switching to it is a matter of turning the mocks off. Like the real API,
+ * every endpoint answers 401 without a session.
  */
 export const handlers = [
   http.get(`${BASE}/me`, () =>
-    HttpResponse.json(sessionFor(currentScenario().role)),
+    session.authorize()
+      ? HttpResponse.json(sessionFor(scenario.role, scenario.hasOrganization))
+      : unauthorized(),
   ),
 
-  http.get(`${BASE}/runs/active`, () =>
-    HttpResponse.json({
-      items: currentScenario().hasActiveRuns ? [activeRun] : [],
-    }),
+  http.post(`${BASE}/auth/logout`, () => {
+    session.signOut();
+
+    return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${BASE}/repositories`, ({ request }) => {
+    if (!session.authorize()) {
+      return unauthorized();
+    }
+
+    const cursor = Number(
+      new URL(request.url).searchParams.get("cursor") ?? "0",
+    );
+
+    return HttpResponse.json(repositories.page(cursor));
+  }),
+
+  // In reality the owner picks repositories on GitHub, and GitHub's Setup URL leads back
+  // to /repositories?connected=1. The mock skips GitHub and connects one right away.
+  http.get(`${BASE}/repositories/connect-url`, () => {
+    if (!session.authorize()) {
+      return unauthorized();
+    }
+
+    repositories.connectOne();
+
+    return HttpResponse.json({ url: "/repositories?connected=1" });
+  }),
+
+  // In reality the owner removes the repository on GitHub, and "Redirect on update" leads
+  // back through the Setup URL. The mock removes it right away.
+  http.get(
+    `${BASE}/repositories/:repositoryId/disconnect-url`,
+    ({ params }) => {
+      if (!session.authorize()) {
+        return unauthorized();
+      }
+
+      const repositoryId = params["repositoryId"];
+
+      if (
+        typeof repositoryId !== "string" ||
+        !repositories.disconnect(repositoryId)
+      ) {
+        return HttpResponse.json({ error: "not_found" }, { status: 404 });
+      }
+
+      return HttpResponse.json({ url: "/repositories?connected=1" });
+    },
   ),
+
+  http.get(`${BASE}/runs/active`, () => {
+    if (!session.authorize()) {
+      return unauthorized();
+    }
+
+    return HttpResponse.json({
+      items: scenario.hasActiveRuns ? [activeRun] : [],
+    });
+  }),
 
   http.get(`${BASE}/runs`, ({ request }) => {
+    if (!session.authorize()) {
+      return unauthorized();
+    }
+
     const url = new URL(request.url);
     const status = url.searchParams.get("status");
     const repository = url.searchParams.get("repository");
@@ -76,6 +158,10 @@ export const handlers = [
   }),
 
   http.get(`${BASE}/runs/:runId`, ({ params }) => {
+    if (!session.authorize()) {
+      return unauthorized();
+    }
+
     if (params["runId"] === failedRun.id) {
       return HttpResponse.json({ run: failedRunDetails, findings: [] });
     }
@@ -92,6 +178,10 @@ export const handlers = [
   }),
 
   http.get(`${BASE}/runs/:runId/file-lines`, ({ request }) => {
+    if (!session.authorize()) {
+      return unauthorized();
+    }
+
     const url = new URL(request.url);
     const path = url.searchParams.get("path") ?? "";
     const from = Number(url.searchParams.get("from") ?? "1");

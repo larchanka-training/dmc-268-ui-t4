@@ -11,3 +11,4 @@ export { createHttpRunsRepository } from "./infrastructure/http-runs-repository"
 export { RunsDependenciesProvider } from "./presentation/dependencies";
 export { RunDetailsPage } from "./presentation/pages/run-details-page";
 export { RunsPage } from "./presentation/pages/runs-page";
+export { useActiveRuns } from "./presentation/queries";

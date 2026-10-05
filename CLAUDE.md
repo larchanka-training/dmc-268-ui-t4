@@ -33,9 +33,10 @@ Clean Architecture inside vertical modules:
 
 ```
 src/
-  app/                    composition root: DI provider, router, guards, theme, env
+  app/                    composition root: DI provider, router, guards, theme, env,
+                          the console shell (layouts/) and cross-module pages (pages/)
   modules/
-    auth|billing|runs/    domain/ application/ infrastructure/ presentation/ index.ts
+    auth|billing|runs|repositories/  domain/ application/ infrastructure/ presentation/ index.ts
     admin/                isolated, lazily loaded by the router only
   shared/
     diff/                 diff viewer: domain/ + presentation/
@@ -58,6 +59,11 @@ ephemeral UI state in Zustand. Domain and application layers stay free of React.
 
 - `@/` maps to `src/`; imports carry no file extension. Inside a module use relative paths.
 - No default exports in `src/` (`import-x/no-default-export`); config files are exempt.
+- One exported component per `.tsx` file, named after the file (`account-menu.tsx` exports
+  `AccountMenu`); enforced by the local rule `local/one-exported-component`
+  (`eslint-rules/`). Small, stateless private helpers may stay in the file; move one out once
+  it is reused, has its own hooks or state, or the file passes ~150 lines. `shared/ui`
+  (vendored shadcn) is exempt.
 - Colours only come from the semantic tokens in `src/app/styles/index.css`, so both themes stay in sync.
 - TypeScript is strict, including `noUncheckedIndexedAccess`, `verbatimModuleSyntax` and
   `erasableSyntaxOnly` — use union literals and `as const` instead of `enum`.
@@ -67,7 +73,8 @@ ephemeral UI state in Zustand. Domain and application layers stay free of React.
 
 - Mocks run in dev (`VITE_ENABLE_MOCKS=true`) and in `pnpm build:demo`; a normal `pnpm build`
   drops MSW and the fixtures through the build-time `MOCKS_AVAILABLE` flag.
-- `?mock=owner|member|admin|idle` switches the mock scenario (role, active runs).
+- `?mock=owner|member|admin|idle|signed-out|denied|no-orgs|expired|no-repos` switches the
+  mock scenario (role, active runs, sign-in outcome, repositories).
 - Fixtures live in `src/shared/mocks/state.ts` in the wire format, so they go through the
   Zod schemas and mappers like a real response.
 - Zustand selectors must not build new objects (`state.x[id] ?? []` re-renders forever);
@@ -75,8 +82,8 @@ ephemeral UI state in Zustand. Domain and application layers stay free of React.
 
 ## CI
 
-`.github/workflows/ci.yml` runs the same checks as the hooks plus `format:check` and
-`build`. Keep the workflow and the `pre-push` hook in step when adding a script.
+`.github/workflows/ci.yml` runs the same checks as the hooks plus `format:check`,
+`build` and `build:demo`. Keep the workflow and the `pre-push` hook in step when adding a script.
 
 ## Notes
 

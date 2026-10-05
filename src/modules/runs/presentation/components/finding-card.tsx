@@ -16,7 +16,8 @@ import {
   withExpandedContext,
 } from "../run-details-store";
 
-import { CategoryBadge, SeverityBadge } from "./severity-badge";
+import { CategoryBadge } from "./category-badge";
+import { SeverityBadge } from "./severity-badge";
 
 export interface FindingCardProps {
   readonly finding: Finding;

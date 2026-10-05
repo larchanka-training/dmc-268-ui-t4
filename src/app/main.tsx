@@ -14,7 +14,8 @@ if (!container) {
 
 /**
  * Statically false in a normal production build, so the bundler drops the import below
- * together with MSW and the fixtures. The demo build keeps them.
+ * together with MSW and the fixtures. The demo build keeps them. Written out here rather
+ * than imported: the bundler only folds a condition it can see in the same module.
  */
 const MOCKS_AVAILABLE = import.meta.env.DEV || import.meta.env.MODE === "demo";
 

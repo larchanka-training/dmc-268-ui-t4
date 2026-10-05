@@ -12,11 +12,12 @@ comments and suggestions.
 The frontend is not where code review happens — that stays on GitHub. It is the console
 of the service:
 
-| Area       | Audience  | Purpose                                               |
-| ---------- | --------- | ----------------------------------------------------- |
-| Billing    | customers | plans, subscription, seat usage                       |
-| Agent runs | customers | runs in flight, history, and what the agent published |
-| Admin      | our team  | every subscription, read-only                         |
+| Area         | Audience  | Purpose                                               |
+| ------------ | --------- | ----------------------------------------------------- |
+| Billing      | customers | plans, subscription, seat usage                       |
+| Agent runs   | customers | runs in flight, history, and what the agent published |
+| Repositories | customers | the repositories the app reviews, and connecting more |
+| Admin        | our team  | every subscription, read-only                         |
 
 Out of scope on purpose: reviewing code in our UI, replying to findings, applying
 suggestions. All of that lives in the pull request.
@@ -52,7 +53,8 @@ src/
   app/                       composition root
     composition/             builds adapters and hands them to the modules
     config/                  env validated with Zod at startup
-    layouts/                 console shell (navigation, org, theme)
+    layouts/                 console shell: top bar, account menu, sidebar, mobile drawer
+    pages/                   pages that compose several modules (the Overview)
     providers/               query client, DI providers, theme
     routes/                  the route tree, guards, typed search params
     styles/                  Tailwind entry point and semantic tokens
@@ -60,6 +62,7 @@ src/
     auth/                    session, organisations, permissions
     billing/                 plans and subscription (placeholder screens)
     runs/                    agent runs, findings, run details
+    repositories/            connected repositories, connecting more via GitHub
     admin/                   platform admin area (lazy, isolated)
       domain/ application/ infrastructure/ presentation/ index.ts
   shared/
@@ -75,7 +78,9 @@ Rules, enforced by `eslint-plugin-boundaries` (see `eslint.config.ts`):
 - inside a module, imports follow the layer direction above;
 - a module may import another module **only through its `index.ts`**;
 - `shared/` never imports from `modules/`;
-- no module imports `admin`; only the router in `app/` does, lazily.
+- no module imports `admin`; only the router in `app/` does, lazily;
+- each `.tsx` file exports one component, named after the file; private helpers may stay
+  while they are small and stateless (`shared/ui`, vendored from shadcn, is exempt).
 
 A violation fails `pnpm lint`, which is what keeps the architecture from eroding.
 
@@ -100,12 +105,13 @@ call them with an in-memory repository and no React at all.
 
 ## 5. State
 
-| Kind                     | Where it lives     | Example                                   |
-| ------------------------ | ------------------ | ----------------------------------------- |
-| Server data              | TanStack Query     | runs, run details, session                |
-| Shareable UI state       | URL (typed search) | status filter, repository, author, search |
-| Ephemeral UI state       | Zustand            | unfolded context, collapsed findings      |
-| One persisted preference | Zustand + persist  | theme                                     |
+| Kind                     | Where it lives     | Example                                                      |
+| ------------------------ | ------------------ | ------------------------------------------------------------ |
+| Server data              | TanStack Query     | runs, run details, session                                   |
+| Session credential       | `HttpOnly` cookie  | never visible to JavaScript                                  |
+| Shareable UI state       | URL (typed search) | status filter, repository, author, search                    |
+| Ephemeral UI state       | Zustand            | unfolded context, collapsed findings, the "connected" banner |
+| One persisted preference | Zustand + persist  | theme                                                        |
 
 Active runs poll every 3 seconds **while anything is still running** and stop on their
 own once every run reaches a terminal status:
@@ -163,12 +169,37 @@ exists. The diff arrives **structured**, not as raw unified diff text:
 ```
 
 Endpoints: `GET /api/me`, `GET /api/runs/active`, `GET /api/runs`, `GET /api/runs/:id`,
-`GET /api/runs/:id/file-lines?path=&from=&to=` (unfolding context).
+`GET /api/runs/:id/file-lines?path=&from=&to=` (unfolding context), and for signing in
+`GET /api/auth/github` (a page navigation), `GET /api/auth/github/callback` (GitHub's
+redirect, handled by the backend) and `POST /api/auth/logout`. Repositories:
+`GET /api/repositories?cursor=` (with `total_count`), `GET /api/repositories/connect-url` and
+`GET /api/repositories/{id}/disconnect-url`
+(see [Spec 002](./docs/specs/002-account-layout.md)).
 
 Every response passes a Zod schema in `infrastructure/dto.ts` before mappers turn it into
 domain types. Findings whose position is not part of their snippet are **dropped**, the
 same check the backend performs before publishing a comment
 (`isPositionInDiff`, `toValidFindings`).
+
+### Authentication
+
+The session is **cookie-only**: the backend runs the GitHub sign-in, keeps every
+credential, and gives the browser an `HttpOnly; Secure; SameSite=Strict` cookie that
+JavaScript cannot read. The SPA and `/api` are served from the same site. The full design
+is in [Spec 001](./docs/specs/001-github-auth.md).
+
+- **Sign-in.** `/login` links to `GET /api/auth/github?return_to=…`. The backend redirects
+  back to `/auth/callback?result=…&return_to=…`; the callback loads `/me` and opens
+  `return_to`. A direct sign-in, or a user whose organisations lack the app, lands on
+  `/auth/success`. `return_to` must be a local path (`sanitizeReturnTo`), so sign-in
+  cannot become an open redirect.
+- **CSRF.** Every request carries `X-Requested-With: fetch`; the backend rejects
+  state-changing requests without it or from a foreign `Origin`.
+- **Lost session.** A `401` from any endpoint other than `/me` calls the HTTP client's
+  `onUnauthorized` hook: the app drops the cached data and opens
+  `/login?returnTo=<current page>`.
+- **Sign-out.** `POST /api/auth/logout`, then the cache is cleared and the other tabs are
+  told through `BroadcastChannel("auth")`.
 
 ## 7. Diff viewer
 
@@ -210,7 +241,13 @@ pointing outside the diff, which the mappers must drop.
 
 `?mock=owner|member|admin|idle` (or the panel in the corner) switches role and whether any
 runs are active, which is how guards and empty states are checked without editing
-fixtures.
+fixtures. The sign-in scenarios are `signed-out`, `denied` (sign-in cancelled on GitHub),
+`no-orgs` (the app is installed nowhere) and `expired` (the session ends on the second
+request). MSW cannot intercept the trip to GitHub, so in mock mode "Continue with GitHub"
+goes straight to the callback, and the mock session (in `localStorage`) starts when a page
+loads on a successful callback. `no-repos` has an organisation without connected
+repositories; in mock mode "Connect repository" adds one and returns to
+`/repositories?connected=1`, the way GitHub's Setup URL would.
 
 ## 9. Tooling
 

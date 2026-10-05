@@ -46,6 +46,36 @@ describe("can", () => {
     expect(can(session({ role: "owner" }), "billing:manage")).toBe(true);
   });
 
+  it("lets only organisation owners connect repositories", () => {
+    expect(can(session({ role: "owner" }), "repositories:connect")).toBe(true);
+    expect(can(session({ role: "member" }), "repositories:connect")).toBe(
+      false,
+    );
+    // Platform staff follow their role in the organisation, like on GitHub.
+    expect(
+      can(
+        session({ role: "member", isPlatformAdmin: true }),
+        "repositories:connect",
+      ),
+    ).toBe(false);
+  });
+
+  it("lets only organisation owners disconnect repositories", () => {
+    expect(can(session({ role: "owner" }), "repositories:disconnect")).toBe(
+      true,
+    );
+    expect(can(session({ role: "member" }), "repositories:disconnect")).toBe(
+      false,
+    );
+    expect(
+      can(
+        session({ role: "member", isPlatformAdmin: true }),
+        "repositories:disconnect",
+      ),
+    ).toBe(false);
+    expect(can(null, "repositories:disconnect")).toBe(false);
+  });
+
   it("opens the admin area only to platform admins", () => {
     expect(can(session({ role: "owner" }), "admin:view")).toBe(false);
     expect(can(session({ isPlatformAdmin: true }), "admin:view")).toBe(true);

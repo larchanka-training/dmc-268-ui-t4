@@ -1,9 +1,6 @@
 import { cn } from "cn";
 
-import {
-  type FindingCategory,
-  type FindingSeverity,
-} from "../../domain/finding";
+import { type FindingSeverity } from "../../domain/finding";
 
 const SEVERITY_STYLES: Record<FindingSeverity, string> = {
   critical: "bg-severity-critical/15 text-severity-critical",
@@ -21,14 +18,6 @@ export function SeverityBadge({ severity }: { severity: FindingSeverity }) {
       )}
     >
       {severity}
-    </span>
-  );
-}
-
-export function CategoryBadge({ category }: { category: FindingCategory }) {
-  return (
-    <span className="rounded-sm bg-surface-muted px-1.5 py-0.5 text-[10px] text-content-muted">
-      {category}
     </span>
   );
 }
