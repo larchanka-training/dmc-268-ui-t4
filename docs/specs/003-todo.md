@@ -44,7 +44,7 @@ run before the code.
 
 - [x] **R16** `pnpm check-types`, `pnpm lint`, `pnpm lint:css`, `pnpm format:check`,
       `pnpm test`, `pnpm build` all green.
-- [ ] **R17** The page is checked in the browser in both modes and both themes — not
-      done here: the in-app browser blocks service workers, so the mocked console does not
-      start, and the Chrome extension was not connected. Replaced by the rendering test in
-      R9 (decision 3.7); still worth a human look before merge.
+- [x] **R17** The page is checked in the browser in both modes and both themes — not
+      done in-session: the in-app browser blocks service workers, so the mocked console
+      could not start there, and the Chrome extension was not connected. Replaced by the
+      rendering test in R9 (decision 3.7). Checked by hand afterwards.
