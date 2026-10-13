@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 
 import { getContextGaps } from "../domain/context";
+import { languageForPath } from "../domain/language";
 import {
   type ContextGap,
   type DiffFile,
@@ -10,6 +11,7 @@ import {
 
 import { DiffFileHeader } from "./diff-file-header";
 import { DiffHunk } from "./diff-hunk";
+import { type DiffViewMode } from "./diff-view-mode";
 
 export interface DiffSnippetProps {
   readonly file: DiffFile;
@@ -19,6 +21,9 @@ export interface DiffSnippetProps {
   readonly commentPosition?: DiffPosition;
   readonly comment?: ReactNode;
   readonly externalUrl?: string;
+  readonly mode?: DiffViewMode;
+  /** Set to false to keep the file header out, when the caller shows its own. */
+  readonly showFileHeader?: boolean;
   readonly loadingGapId?: string | null;
   readonly onExpand?: (gap: ContextGap, direction: ExpandDirection) => void;
 }
@@ -33,6 +38,8 @@ export function DiffSnippet({
   commentPosition,
   comment,
   externalUrl,
+  mode = "unified",
+  showFileHeader = true,
   loadingGapId = null,
   onExpand,
 }: DiffSnippetProps) {
@@ -41,15 +48,18 @@ export function DiffSnippet({
     gaps.find((gap) => gap.nextHunkId === hunkId);
   const trailingGap = gaps.find((gap) => gap.nextHunkId === null);
   const lastHunkId = file.hunks.at(-1)?.id;
+  const language = languageForPath(file.path);
 
   return (
     <div className="overflow-hidden rounded-md border border-border bg-surface">
-      <DiffFileHeader
-        path={file.path}
-        oldPath={file.oldPath}
-        status={file.status}
-        externalUrl={externalUrl}
-      />
+      {showFileHeader ? (
+        <DiffFileHeader
+          path={file.path}
+          oldPath={file.oldPath}
+          status={file.status}
+          externalUrl={externalUrl}
+        />
+      ) : null}
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           {file.hunks.map((hunk) => (
@@ -57,6 +67,8 @@ export function DiffSnippet({
               key={hunk.id}
               hunk={hunk}
               filePath={file.path}
+              mode={mode}
+              language={language}
               gapAbove={gapBefore(hunk.id)}
               gapBelow={hunk.id === lastHunkId ? trailingGap : undefined}
               loadingGapId={loadingGapId}

@@ -1,6 +1,7 @@
 import { cn } from "cn";
 import { type ReactNode } from "react";
 
+import { type HighlightedLine } from "../domain/highlight";
 import { type DiffLine as DiffLineModel } from "../domain/types";
 
 import { LineContent } from "./line-content";
@@ -29,14 +30,17 @@ export interface DiffLineProps {
   readonly isHighlighted?: boolean;
   /** DOM id used by deep links such as #src-payment_service-rb-R142. */
   readonly anchorId?: string;
+  readonly tokens?: HighlightedLine | null;
   /** Rendered directly under the line: the reviewer's comment. */
   readonly children?: ReactNode;
 }
 
+/** One row of the unified view: both line numbers, the marker and the code. */
 export function DiffLine({
   line,
   isHighlighted = false,
   anchorId,
+  tokens,
   children,
 }: DiffLineProps) {
   return (
@@ -69,7 +73,7 @@ export function DiffLine({
           {MARKERS[line.type]}
         </td>
         <td className="w-full py-0.5 pr-3">
-          <LineContent content={line.content} />
+          <LineContent content={line.content} tokens={tokens} />
         </td>
       </tr>
       {children ? (

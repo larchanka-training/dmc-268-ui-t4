@@ -12,9 +12,11 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { expandContext } from "../../application/use-cases";
 import { type Finding, groupByFile } from "../../domain/finding";
 import { repositoryName, runDuration } from "../../domain/run";
-import { FindingCard } from "../components/finding-card";
+import { DiffViewModeToggle } from "../components/diff-view-mode-toggle";
+import { FileFindings } from "../components/file-findings";
 import { RunStatusBadge } from "../components/run-status-badge";
 import { RunTimeline } from "../components/run-timeline";
+import { SeveritySummary } from "../components/severity-summary";
 import { useRunsDependencies } from "../dependencies";
 import { useRunDetails } from "../queries";
 import { useRunDetailsStore } from "../run-details-store";
@@ -106,6 +108,7 @@ export function RunDetailsPage({ runId }: { runId: string }) {
         <p className="text-xs text-content-muted">
           {`Started ${formatDateTime(run.createdAt)} · took ${formatDuration(runDuration(run))}`}
         </p>
+        <SeveritySummary findings={findings} />
         <a
           href={run.pullRequest.url}
           target="_blank"
@@ -144,10 +147,13 @@ export function RunDetailsPage({ runId }: { runId: string }) {
         </div>
       </section>
 
-      <section className="flex flex-col gap-6">
-        <h2 className="text-sm font-semibold">
-          {`Published findings (${String(findings.length)})`}
-        </h2>
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold">
+            {`Published findings (${String(findings.length)})`}
+          </h2>
+          {groups.length === 0 ? null : <DiffViewModeToggle />}
+        </div>
 
         {groups.length === 0 ? (
           <p className="text-sm text-content-muted">
@@ -155,15 +161,12 @@ export function RunDetailsPage({ runId }: { runId: string }) {
           </p>
         ) : (
           groups.map(([path, fileFindings]) => (
-            <div key={path} className="flex flex-col gap-4">
-              {fileFindings.map((finding) => (
-                <FindingCard
-                  key={finding.id}
-                  finding={finding}
-                  onExpand={handleExpand}
-                />
-              ))}
-            </div>
+            <FileFindings
+              key={path}
+              path={path}
+              findings={fileFindings}
+              onExpand={handleExpand}
+            />
           ))
         )}
       </section>
