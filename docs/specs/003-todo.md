@@ -11,23 +11,15 @@ run before the code.
 - [x] **R1** `toSplitRows`: hunk lines → rows of `{ left, right }`. A removed line pairs
       with the added line that replaces it; an unmatched line leaves the other cell empty;
       a context line fills both.
-- [x] **R2** `languageForPath`: file extension → grammar name, `null` when unknown.
-- [x] **R3** `hunkSides` and `applyTokens`: split a hunk into the old and the new text,
-      and put highlighted tokens back on their lines. A line-count mismatch keeps the
-      plain text.
-
-## Infrastructure (`shared/diff/infrastructure`)
-
-- [x] **R4** `createShikiHighlighter`: the only file that imports `shiki`. Loads the
-      library and the grammar on demand, caches both, and returns tokens.
+- [~] **R2**–**R4** Language detection, token mapping and the shiki adapter: built, then
+  removed with the highlighting (decision 3.9).
 
 ## Presentation (`shared/diff/presentation`)
 
 - [x] **R5** `useDiffViewMode`: the remembered `unified` / `split` preference
       (Zustand + `persist`), falling back to `unified` when storage is unavailable.
-- [x] **R6** `useHighlightedHunk`: plain text first, tokens when they arrive, plain text
-      again on failure.
-- [x] **R7** `LineContent` renders tokens when it has them, plain text otherwise.
+- [~] **R6**–**R7** Highlighting hook and token rendering: removed with R2–R4; `LineContent`
+  renders plain text and stays the seam for a future highlighter.
 - [x] **R8** `DiffSplitRow`: one row of the side-by-side view, with both gutters, both
       markers and a comment spanning the full width underneath.
 - [x] **R9** `DiffHunk` renders unified or split; `DiffSnippet` passes the mode through.
@@ -45,8 +37,8 @@ run before the code.
 
 ## Mocks
 
-- [x] **R15** Fixtures cover two languages, all four severities, a finding with a
-      suggestion and one without, and a file whose extension has no grammar.
+- [x] **R15** Fixtures cover four severities, two file types, and a finding with a
+      suggestion as well as one without.
 
 ## Checks
 

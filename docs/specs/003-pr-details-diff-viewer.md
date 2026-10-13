@@ -14,7 +14,6 @@ the code it commented on, and each comment under the line it belongs to.
 Three things the page cannot do today:
 
 - show the diff **side by side**; it only stacks old and new lines in one column;
-- **highlight the syntax** of the code it shows;
 - group findings **by file**, so a file with three comments shows its header three times.
 
 ## 2. Scope
@@ -25,7 +24,6 @@ In scope:
   review status, and how many findings there are by severity.
 - The diff viewer: **unified** and **side-by-side** modes, with the mode remembered
   between visits.
-- **Syntax highlighting** of the code in both modes.
 - Findings **grouped by file**: one file header, its findings underneath, each anchored to
   its line.
 - A finding card that **expands and collapses**, with the severity and category badges and
@@ -36,6 +34,9 @@ Out of scope, and why:
 - **The whole diff of the pull request.** The contract exposes the diff around a finding
   (`/jobs/{id}/findings/{id}/context`) and a range of lines (`/jobs/{id}/file-lines`), not
   the full diff. The page therefore shows the files that have findings. Decision 3.1.
+- **Syntax highlighting.** It was built and then removed at the team's request, so the
+  code is plain text in both modes. Decision 3.9; `LineContent` is still the one component
+  that would carry it.
 - **An overall score or verdict.** No such field exists in the contract, and computing one
   in the browser would invent a number the backend cannot reproduce. The header shows the
   review status and the counts instead. Decision 3.2.
@@ -112,22 +113,7 @@ Side by side pairs the lines of a hunk into rows:
 Below 768 pixels the viewer always renders unified, because two columns of code do not fit;
 the control is hidden rather than disabled, since nothing the reader can do would help.
 
-### 4.3 Syntax highlighting
-
-The language comes from the file extension. Highlighting runs per hunk and per side, never
-per line: a line is a fragment, and a fragment of a multi-line string or comment would be
-coloured wrongly on its own.
-
-It is loaded lazily, after the diff is already on the screen:
-
-1. the hunk renders as plain text immediately;
-2. the highlighter and the grammar for that language load in the background;
-3. the lines re-render with colour.
-
-A language we have no grammar for, or a failure to load, leaves the plain text in place.
-That is a normal outcome, not an error state: the diff is still readable.
-
-### 4.4 Findings grouped by file
+### 4.3 Findings grouped by file
 
 Findings arrive sorted by severity. The page groups them by file, keeps the file order of
 the first finding in each group, and renders:
@@ -139,7 +125,7 @@ A finding card starts expanded and can be collapsed. Collapsing hides the diff a
 the header line, so a reader can fold away what they have already read. The state lives in
 the existing run details store and is dropped when the page is left.
 
-### 4.5 Deep links
+### 4.4 Deep links
 
 A finding keeps its anchor (`#src-payment_service-rb-R142`). Opening such a link scrolls to
 the line and expands the card that owns it, even when the reader had collapsed it before.
@@ -166,17 +152,12 @@ Until the backend ships the jobs endpoints, everything runs on the MSW mocks in
 src/shared/diff/
   domain/
     split.ts            toSplitRows: hunk lines → rows of (left, right)
-    language.ts         languageForPath: file extension → grammar name
-    highlight.ts        hunkSides + applyTokens: pure mapping, no I/O
-  infrastructure/
-    shiki-highlighter.ts  the only file that imports shiki, loaded on demand
   presentation/
-    diff-view-mode.ts     the remembered preference (Zustand + persist)
-    use-highlighted-hunk.ts
-    diff-hunk.tsx         renders unified or split
-    diff-split-row.tsx    one row of the side-by-side view
-    diff-line.tsx         one row of the unified view
-    line-content.tsx      plain text, or coloured tokens when they are ready
+    diff-view-mode.ts   the remembered preference (Zustand + persist)
+    diff-hunk.tsx       renders unified or split
+    diff-split-row.tsx  one row of the side-by-side view
+    diff-line.tsx       one row of the unified view
+    line-content.tsx    the text of a line; the seam a highlighter would use
 
 src/modules/runs/presentation/
   components/file-findings.tsx   one file: header plus its findings
@@ -184,22 +165,11 @@ src/modules/runs/presentation/
   pages/run-details-page.tsx     header, mode control, groups
 ```
 
-The highlighter stays behind one module so the choice of library is reversible: everything
-else works with tokens, which are plain data.
-
 ## 7. Tests
 
 Pure logic, in Vitest, as the project does elsewhere:
 
 - `toSplitRows`: pairing of removed and added lines, unmatched lines on either side,
   context lines in both cells, and a hunk of only additions.
-- `languageForPath`: known extensions, an unknown extension, a file with no extension, and
-  a path with dots in a directory name.
-- `applyTokens`: tokens are placed on the lines they belong to; a mismatch in line count
-  leaves the plain text rather than shifting colours onto the wrong lines.
-- The severity summary: counts and the order of the labels.
-
-The highlighter adapter has two tests of its own. It is thin, but it is the one place
-that depends on another project's API, and a change there would otherwise surface as code
-that quietly stops being coloured: one test asserts that a known language returns a colour
-per theme, the other that an unknown one returns null rather than throwing.
+- The rendered markup of both modes: the cell counts, the column span of a comment and the
+  anchor of the commented line (`diff-snippet.render.test.ts`).

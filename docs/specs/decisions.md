@@ -636,7 +636,7 @@ Why: unified or side by side is a property of the reader, not of the review. In 
 would travel with a shared link to a finding and override the preference of whoever opens
 it. Files: `shared/diff/presentation/diff-view-mode.ts`.
 
-### 3.5 How the code is highlighted
+### 3.5 How the code was highlighted (reverted, see 3.9)
 
 - **✔** Shiki, loaded on demand, highlighting a whole hunk side at a time, with both themes
   resolved in one pass into `--shiki-light` and `--shiki-dark`.
@@ -676,7 +676,7 @@ Why: the one thing the two modes can silently get wrong is the table geometry �
 spanning four columns in a six-column table shifts the layout — and markup is enough to
 catch it. It needs no new dependency: `react-dom/server` is already there.
 
-### 3.8 Keeping the highlighter out of the main bundle
+### 3.8 Keeping the highlighter out of the main bundle (reverted, see 3.9)
 
 Two findings from measuring the build rather than assuming it.
 
@@ -697,3 +697,22 @@ imports were fixed — the remaining 12 kB is this task's own components.
 
 A test pairs the two lists (`language.test.ts`): an extension added to `languageForPath`
 without a matching loader would otherwise just stop colouring, silently.
+
+### 3.9 Removing syntax highlighting
+
+Asked for by the team after 3.5 and 3.8 were implemented.
+
+- **✔** Remove it completely: the `shiki` dependency, the adapter, the hook, the language
+  detection, the token mapping and the token plumbing through the components.
+- Keep the plumbing and only drop the library, so a highlighter could be dropped back in.
+
+Why: half-removed is the worst of the three. Types and props carrying tokens nothing ever
+produces read as a feature that exists and is broken, and the next person has to work out
+which half is live. The code is not lost — it is in commit `7cb7af0` on this branch, and a
+single revert of these files brings it back together with its tests.
+
+What stays: `LineContent` is still the only component that renders the text of a line, so
+it remains the seam a highlighter would use, and the comment there says so.
+
+Effect on the bundle: back to `main` plus this task's own components — 622 kB before the
+task, 634 kB with highlighting, 629 kB now, and 8 chunks instead of 51.

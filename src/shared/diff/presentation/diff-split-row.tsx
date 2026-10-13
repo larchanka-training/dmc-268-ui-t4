@@ -1,7 +1,6 @@
 import { cn } from "cn";
 import { type ReactNode } from "react";
 
-import { type HighlightedLine } from "../domain/highlight";
 import { type SplitRow } from "../domain/split";
 import { type DiffLine } from "../domain/types";
 
@@ -24,8 +23,6 @@ const MARKERS: Record<DiffLine["type"], string> = {
 
 export interface DiffSplitRowProps {
   readonly row: SplitRow;
-  readonly leftTokens?: HighlightedLine | null;
-  readonly rightTokens?: HighlightedLine | null;
   /** Side the reviewer's comment is anchored to, when it belongs to this row. */
   readonly commentedSide?: "old" | "new";
   readonly anchorId?: string;
@@ -35,17 +32,11 @@ export interface DiffSplitRowProps {
 /** One row of the side-by-side view: the old file on the left, the new one on the right. */
 export function DiffSplitRow({
   row,
-  leftTokens,
-  rightTokens,
   commentedSide,
   anchorId,
   children,
 }: DiffSplitRowProps) {
-  const side = (
-    line: DiffLine | null,
-    tokens: HighlightedLine | null | undefined,
-    isCommented: boolean,
-  ) => {
+  const side = (line: DiffLine | null, isCommented: boolean) => {
     const styles = line === null ? MISSING_CELL_STYLE : CELL_STYLES[line.type];
 
     return (
@@ -77,9 +68,7 @@ export function DiffSplitRow({
             isCommented && "ring-2 ring-severity-high ring-inset",
           )}
         >
-          {line === null ? null : (
-            <LineContent content={line.content} tokens={tokens} />
-          )}
+          {line === null ? null : <LineContent content={line.content} />}
         </td>
       </>
     );
@@ -88,8 +77,8 @@ export function DiffSplitRow({
   return (
     <>
       <tr id={anchorId} className="scroll-mt-24 font-mono text-xs leading-5">
-        {side(row.left, leftTokens, commentedSide === "old")}
-        {side(row.right, rightTokens, commentedSide === "new")}
+        {side(row.left, commentedSide === "old")}
+        {side(row.right, commentedSide === "new")}
       </tr>
       {children ? (
         <tr>

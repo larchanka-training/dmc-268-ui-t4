@@ -14,14 +14,11 @@ import { DiffLine } from "./diff-line";
 import { DiffSplitRow } from "./diff-split-row";
 import { type DiffViewMode } from "./diff-view-mode";
 import { ExpandContextRow } from "./expand-context-row";
-import { useHighlightedHunk } from "./use-highlighted-hunk";
 
 export interface DiffHunkProps {
   readonly hunk: DiffHunkModel;
   readonly filePath: string;
   readonly mode?: DiffViewMode;
-  /** Grammar for the file, or null to leave the code plain. */
-  readonly language?: string | null;
   /** Gaps rendered above and below this hunk. */
   readonly gapAbove?: ContextGap;
   readonly gapBelow?: ContextGap;
@@ -36,7 +33,6 @@ export function DiffHunk({
   hunk,
   filePath,
   mode = "unified",
-  language = null,
   gapAbove,
   gapBelow,
   loadingGapId = null,
@@ -44,7 +40,6 @@ export function DiffHunk({
   commentPosition,
   comment,
 }: DiffHunkProps) {
-  const tokens = useHighlightedHunk(hunk, language);
   const noop = () => undefined;
   const columnCount = mode === "split" ? 6 : 4;
 
@@ -78,10 +73,6 @@ export function DiffHunk({
 
       {mode === "split"
         ? toSplitRows(hunk).map((row, index) => {
-            const leftIndex =
-              row.left === null ? -1 : hunk.lines.indexOf(row.left);
-            const rightIndex =
-              row.right === null ? -1 : hunk.lines.indexOf(row.right);
             const commentedLine = [row.left, row.right].find(
               (line) => line !== null && isCommented(line),
             );
@@ -90,8 +81,6 @@ export function DiffHunk({
               <DiffSplitRow
                 key={`${hunk.id}-split-${String(index)}`}
                 row={row}
-                leftTokens={tokens[leftIndex]}
-                rightTokens={tokens[rightIndex]}
                 {...(commentedLine === undefined || commentedLine === null
                   ? {}
                   : {
@@ -113,7 +102,6 @@ export function DiffHunk({
                 key={`${hunk.id}-${String(index)}`}
                 line={line}
                 isHighlighted={commented}
-                tokens={tokens[index]}
                 {...(commented ? { anchorId: anchorFor(filePath) } : {})}
               >
                 {commented ? comment : null}

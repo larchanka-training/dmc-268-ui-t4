@@ -1,7 +1,6 @@
 import { type ReactNode } from "react";
 
 import { getContextGaps } from "../domain/context";
-import { languageForPath } from "../domain/language";
 import {
   type ContextGap,
   type DiffFile,
@@ -48,7 +47,6 @@ export function DiffSnippet({
     gaps.find((gap) => gap.nextHunkId === hunkId);
   const trailingGap = gaps.find((gap) => gap.nextHunkId === null);
   const lastHunkId = file.hunks.at(-1)?.id;
-  const language = languageForPath(file.path);
 
   return (
     <div className="overflow-hidden rounded-md border border-border bg-surface">
@@ -68,7 +66,6 @@ export function DiffSnippet({
               hunk={hunk}
               filePath={file.path}
               mode={mode}
-              language={language}
               gapAbove={gapBefore(hunk.id)}
               gapBelow={hunk.id === lastHunkId ? trailingGap : undefined}
               loadingGapId={loadingGapId}
