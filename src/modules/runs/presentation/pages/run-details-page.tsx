@@ -11,12 +11,12 @@ import { Skeleton } from "@/shared/ui/skeleton";
 
 import { expandContext } from "../../application/use-cases";
 import { type Finding, groupByFile } from "../../domain/finding";
-import { repositoryName, runDuration } from "../../domain/run";
+import { isActiveStatus, repositoryName, runDuration } from "../../domain/run";
 import { FindingCard } from "../components/finding-card";
 import { RunStatusBadge } from "../components/run-status-badge";
 import { RunTimeline } from "../components/run-timeline";
 import { useRunsDependencies } from "../dependencies";
-import { useRunDetails } from "../queries";
+import { useRunDetails, useRunLiveUpdates } from "../queries";
 import { useRunDetailsStore } from "../run-details-store";
 
 /**
@@ -26,6 +26,11 @@ import { useRunDetailsStore } from "../run-details-store";
 export function RunDetailsPage({ runId }: { runId: string }) {
   const dependencies = useRunsDependencies();
   const details = useRunDetails(runId);
+
+  useRunLiveUpdates(
+    runId,
+    details.data !== undefined && isActiveStatus(details.data.run.status),
+  );
 
   const addExpansion = useRunDetailsStore((state) => state.addExpansion);
   const setLoadingGapId = useRunDetailsStore((state) => state.setLoadingGapId);

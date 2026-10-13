@@ -69,27 +69,72 @@ export const REPOSITORIES_TO_CONNECT = [
 ];
 
 const PULL_REQUEST = {
-  owner: "acme",
-  repo: "payments",
+  provider: "github",
+  repo_full_name: "acme/payments",
   number: 412,
   title: "Add retry logic for payment provider",
-  url: "https://github.com/acme/payments/pull/412",
   author: "octocat",
   head_ref: "feature/payment-retry",
   base_ref: "main",
   head_sha: "a1b2c3d4e5f6a7b8",
+  url: "https://github.com/acme/payments/pull/412",
 } as const;
 
+/** The fields of a GET /jobs item that every fixture below shares. */
+const JOB = {
+  trigger: "webhook",
+  error_kind: null,
+  retry_count: 0,
+  next_attempt_at: null,
+} as const;
+
+type StepName =
+  | "CLAIMED"
+  | "AUTH"
+  | "FETCH_DIFF"
+  | "BUILD_CONTEXT"
+  | "REDACT"
+  | "GATE"
+  | "LLM_CALL"
+  | "POSTPROCESS"
+  | "POST_FEEDBACK"
+  | "METER";
+
+/** A pipeline step in the wire format, timed in seconds from `start`. */
+export function jobStep(
+  start: string,
+  step: StepName,
+  fromSeconds: number,
+  toSeconds: number | null,
+  status: "RUNNING" | "OK" | "FAILED" | "SKIPPED" = "OK",
+  errorKind: string | null = null,
+) {
+  const at = (seconds: number) =>
+    new Date(Date.parse(start) + seconds * 1000).toISOString();
+
+  return {
+    step,
+    status: toSeconds === null ? "RUNNING" : status,
+    attempt: 1,
+    started_at: at(fromSeconds),
+    finished_at: toSeconds === null ? null : at(toSeconds),
+    error_kind: errorKind,
+  };
+}
+
 export const completedRun = {
+  ...JOB,
   id: "run_8f21",
   pull_request: PULL_REQUEST,
-  status: "completed",
-  created_at: "2026-09-15T09:12:03.000Z",
+  status: "COMPLETED",
+  created_at: "2026-09-15T09:12:01.000Z",
+  started_at: "2026-09-15T09:12:03.000Z",
   finished_at: "2026-09-15T09:13:31.000Z",
   finding_count: 3,
 } as const;
 
 export const failedRun = {
+  ...JOB,
   id: "run_7c02",
   pull_request: {
     ...PULL_REQUEST,
@@ -98,13 +143,17 @@ export const failedRun = {
     url: "https://github.com/acme/payments/pull/408",
     head_ref: "chore/bump-deps",
   },
-  status: "failed",
-  created_at: "2026-09-14T17:41:10.000Z",
+  status: "FAILED",
+  created_at: "2026-09-14T17:41:09.000Z",
+  started_at: "2026-09-14T17:41:10.000Z",
   finished_at: "2026-09-14T17:41:52.000Z",
   finding_count: 0,
+  error_kind:
+    "The diff exceeded the context budget: 412 changed files, 61k lines.",
 } as const;
 
 export const olderRuns = Array.from({ length: 12 }, (_, index) => ({
+  ...JOB,
   id: `run_old_${String(index)}`,
   pull_request: {
     ...PULL_REQUEST,
@@ -114,9 +163,12 @@ export const olderRuns = Array.from({ length: 12 }, (_, index) => ({
     author: index % 3 === 0 ? "hubot" : "octocat",
     head_ref: `refactor/settlement-${String(index)}`,
   },
-  status: "completed" as const,
+  status: "COMPLETED" as const,
   created_at: new Date(
     Date.parse("2026-09-13T12:00:00.000Z") - index * 3_600_000,
+  ).toISOString(),
+  started_at: new Date(
+    Date.parse("2026-09-13T12:00:01.000Z") - index * 3_600_000,
   ).toISOString(),
   finished_at: new Date(
     Date.parse("2026-09-13T12:01:02.000Z") - index * 3_600_000,
@@ -124,7 +176,9 @@ export const olderRuns = Array.from({ length: 12 }, (_, index) => ({
   finding_count: index % 4,
 }));
 
+/** The job the mock backend reviews live; see `active-job.ts` for its progress. */
 export const activeRun = {
+  ...JOB,
   id: "run_9a44",
   pull_request: {
     ...PULL_REQUEST,
@@ -133,53 +187,49 @@ export const activeRun = {
     url: "https://github.com/acme/payments/pull/415",
     head_ref: "feature/provider-timeouts",
   },
-  status: "reviewing",
-  created_at: new Date(Date.now() - 42_000).toISOString(),
-  finished_at: null,
   finding_count: 0,
+} as const;
+
+const DETAIL = {
+  error_log: null,
+  external_check_url: null,
 } as const;
 
 export const completedRunDetails = {
   ...completedRun,
-  stages: [
-    {
-      name: "collecting_context",
-      started_at: "2026-09-15T09:12:03.000Z",
-      finished_at: "2026-09-15T09:12:19.000Z",
-    },
-    {
-      name: "reviewing",
-      started_at: "2026-09-15T09:12:19.000Z",
-      finished_at: "2026-09-15T09:13:14.000Z",
-    },
-    {
-      name: "validating",
-      started_at: "2026-09-15T09:13:14.000Z",
-      finished_at: "2026-09-15T09:13:25.000Z",
-    },
-    {
-      name: "publishing",
-      started_at: "2026-09-15T09:13:25.000Z",
-      finished_at: "2026-09-15T09:13:31.000Z",
-    },
+  ...DETAIL,
+  steps: [
+    jobStep(completedRun.started_at, "CLAIMED", 0, 1),
+    jobStep(completedRun.started_at, "AUTH", 1, 2),
+    jobStep(completedRun.started_at, "FETCH_DIFF", 2, 9),
+    jobStep(completedRun.started_at, "BUILD_CONTEXT", 9, 15),
+    jobStep(completedRun.started_at, "REDACT", 15, 16),
+    jobStep(completedRun.started_at, "GATE", 16, 17),
+    jobStep(completedRun.started_at, "LLM_CALL", 17, 71),
+    jobStep(completedRun.started_at, "POSTPROCESS", 71, 82),
+    jobStep(completedRun.started_at, "POST_FEEDBACK", 82, 87),
+    jobStep(completedRun.started_at, "METER", 87, 88),
   ],
   summary:
     "Retries are added around the provider call. Two issues are worth a look: the retry loop keeps the database transaction open, and the backoff has no upper bound.",
-  failure_reason: null,
 } as const;
 
 export const failedRunDetails = {
   ...failedRun,
-  stages: [
-    {
-      name: "collecting_context",
-      started_at: "2026-09-14T17:41:10.000Z",
-      finished_at: "2026-09-14T17:41:52.000Z",
-    },
+  ...DETAIL,
+  steps: [
+    jobStep(failedRun.started_at, "CLAIMED", 0, 1),
+    jobStep(failedRun.started_at, "AUTH", 1, 2),
+    jobStep(
+      failedRun.started_at,
+      "FETCH_DIFF",
+      2,
+      42,
+      "FAILED",
+      "diff_too_large",
+    ),
   ],
   summary: null,
-  failure_reason:
-    "The diff exceeded the context budget: 412 changed files, 61k lines.",
 } as const;
 
 /** The file the findings point at, used both for the snippets and for unfolding context. */

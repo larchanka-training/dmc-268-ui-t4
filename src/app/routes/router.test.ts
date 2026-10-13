@@ -43,6 +43,7 @@ const runs: RunsRepository = {
   listRunHistory: notUsed,
   getRunDetails: notUsed,
   getFileLines: notUsed,
+  watchRun: notUsed,
 };
 
 const repositories: ConnectedReposApi = {

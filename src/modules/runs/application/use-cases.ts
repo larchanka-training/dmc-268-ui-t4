@@ -48,6 +48,15 @@ export async function getRunDetails(
   };
 }
 
+/** Live progress of one run; the returned function stops it. */
+export function watchRun(
+  { runs }: RunsDependencies,
+  runId: string,
+  onChange: () => void,
+): () => void {
+  return runs.watchRun(runId, onChange);
+}
+
 export interface ExpandContextParams {
   readonly runId: string;
   readonly path: string;

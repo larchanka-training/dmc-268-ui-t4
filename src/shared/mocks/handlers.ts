@@ -1,11 +1,11 @@
-import { HttpResponse, http } from "msw";
+import { HttpResponse, http, sse } from "msw";
 
+import { type MockJobEvent, createMockActiveJob } from "./active-job";
 import { createMockRepositories } from "./repositories";
 import { currentScenario } from "./scenario";
 import { browserStorage, createMockSession } from "./session";
 import {
   PAYMENT_SERVICE_FILE,
-  activeRun,
   completedRun,
   completedRunDetails,
   failedRun,
@@ -34,6 +34,11 @@ const repositories = createMockRepositories({
   scenario,
   storage: browserStorage(),
 });
+
+const activeJob = scenario.hasActiveRuns ? createMockActiveJob() : null;
+
+/** How often the mock event stream looks for progress, like the backend's poll. */
+const EVENTS_POLL_MS = 1000;
 
 const unauthorized = () =>
   HttpResponse.json({ error: "no_session" }, { status: 401 });
@@ -102,45 +107,46 @@ export const handlers = [
     },
   ),
 
-  http.get(`${BASE}/runs/active`, () => {
-    if (!session.authorize()) {
-      return unauthorized();
-    }
-
-    return HttpResponse.json({
-      items: scenario.hasActiveRuns ? [activeRun] : [],
-    });
-  }),
-
-  http.get(`${BASE}/runs`, ({ request }) => {
+  http.get(`${BASE}/jobs`, ({ request }) => {
     if (!session.authorize()) {
       return unauthorized();
     }
 
     const url = new URL(request.url);
     const status = url.searchParams.get("status");
+
+    if (status === "active") {
+      return HttpResponse.json({
+        items:
+          activeJob === null || activeJob.isDone() ? [] : [activeJob.job()],
+        next_cursor: null,
+      });
+    }
+
     const repository = url.searchParams.get("repository");
     const author = url.searchParams.get("author");
     const query = url.searchParams.get("q");
     const cursor = Number(url.searchParams.get("cursor") ?? "0");
+    const all = activeJob === null ? history : [activeJob.job(), ...history];
 
-    const filtered = history.filter((run) => {
-      if (status !== null && run.status !== status) {
+    const filtered = all.filter((job) => {
+      if (status !== null && job.status !== status) {
         return false;
       }
 
-      const fullName = `${run.pull_request.owner}/${run.pull_request.repo}`;
-
-      if (repository !== null && !fullName.includes(repository)) {
+      if (
+        repository !== null &&
+        !job.pull_request.repo_full_name.includes(repository)
+      ) {
         return false;
       }
 
-      if (author !== null && !run.pull_request.author.includes(author)) {
+      if (author !== null && !job.pull_request.author.includes(author)) {
         return false;
       }
 
       if (query !== null) {
-        const haystack = `${run.pull_request.title} #${String(run.pull_request.number)}`;
+        const haystack = `${job.pull_request.title} #${String(job.pull_request.number)}`;
 
         return haystack.toLowerCase().includes(query.toLowerCase());
       }
@@ -157,27 +163,83 @@ export const handlers = [
     });
   }),
 
-  http.get(`${BASE}/runs/:runId`, ({ params }) => {
+  http.get(`${BASE}/jobs/:jobId`, ({ params }) => {
     if (!session.authorize()) {
       return unauthorized();
     }
 
-    if (params["runId"] === failedRun.id) {
-      return HttpResponse.json({ run: failedRunDetails, findings: [] });
+    if (params["jobId"] === failedRun.id) {
+      return HttpResponse.json({ ...failedRunDetails, findings: [] });
     }
 
-    if (params["runId"] === completedRun.id) {
+    if (params["jobId"] === completedRun.id) {
       // The invalid finding is included on purpose: the mappers must drop it.
       return HttpResponse.json({
-        run: completedRunDetails,
+        ...completedRunDetails,
         findings: [...findings, findingOutsideDiff],
       });
+    }
+
+    if (activeJob !== null && params["jobId"] === activeJob.id) {
+      return HttpResponse.json(activeJob.detail());
     }
 
     return HttpResponse.json({ error: "not_found" }, { status: 404 });
   }),
 
-  http.get(`${BASE}/runs/:runId/file-lines`, ({ request }) => {
+  // Like the backend: a snapshot first, then each change as it happens, and `end` once
+  // the job is terminal.
+  sse<{ snapshot: unknown; step: unknown; status: unknown; end: unknown }>(
+    `${BASE}/jobs/:jobId/events`,
+    ({ params, client }) => {
+      if (activeJob === null || params["jobId"] !== activeJob.id) {
+        client.close();
+
+        return;
+      }
+
+      const job = activeJob;
+      const send = (event: MockJobEvent) => {
+        client.send({
+          id: String(event.data.seq),
+          event: event.kind,
+          data: event.data,
+        });
+      };
+      let sent = job.events().length;
+
+      client.send({
+        id: String(sent),
+        event: "snapshot",
+        data: { job_id: job.id, status: job.job().status, seq: sent },
+      });
+
+      const finish = () => {
+        client.send({ event: "end", data: { status: job.job().status } });
+        client.close();
+      };
+
+      if (job.isDone()) {
+        finish();
+
+        return;
+      }
+
+      const timer = window.setInterval(() => {
+        const events = job.events();
+
+        events.slice(sent).forEach(send);
+        sent = events.length;
+
+        if (job.isDone()) {
+          window.clearInterval(timer);
+          finish();
+        }
+      }, EVENTS_POLL_MS);
+    },
+  ),
+
+  http.get(`${BASE}/jobs/:jobId/file-lines`, ({ request }) => {
     if (!session.authorize()) {
       return unauthorized();
     }

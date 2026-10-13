@@ -1,9 +1,15 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import {
   getRunDetails,
   listActiveRuns,
   listRunHistory,
+  watchRun,
 } from "../application/use-cases";
 import { type RunFilters } from "../domain/filters";
 import { hasActiveRun } from "../domain/run";
@@ -61,4 +67,26 @@ export function useRunDetails(runId: string) {
     queryKey: runsQueryKeys.details(runId),
     queryFn: ({ signal }) => getRunDetails(dependencies, runId, signal),
   });
+}
+
+/**
+ * While a run is in flight, its event stream marks the details (and the active list)
+ * stale on every change, so the timeline moves as soon as a stage does.
+ */
+export function useRunLiveUpdates(runId: string, isActive: boolean) {
+  const dependencies = useRunsDependencies();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!isActive) {
+      return undefined;
+    }
+
+    return watchRun(dependencies, runId, () => {
+      void queryClient.invalidateQueries({
+        queryKey: runsQueryKeys.details(runId),
+      });
+      void queryClient.invalidateQueries({ queryKey: runsQueryKeys.active() });
+    });
+  }, [dependencies, queryClient, runId, isActive]);
 }
