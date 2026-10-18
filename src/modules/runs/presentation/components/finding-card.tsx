@@ -1,10 +1,13 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { useEffect, useRef } from "react";
 
+import { positionAnchorId } from "@/shared/diff/domain/position";
 import {
   type ContextGap,
   type ExpandDirection,
 } from "@/shared/diff/domain/types";
 import { DiffSnippet } from "@/shared/diff/presentation/diff-snippet";
+import { useDiffViewMode } from "@/shared/diff/presentation/diff-view-mode";
 import { InlineFinding } from "@/shared/diff/presentation/inline-finding";
 import { SuggestionBlock } from "@/shared/diff/presentation/suggestion-block";
 import { Button } from "@/shared/ui/button";
@@ -44,11 +47,29 @@ export function FindingCard({ finding, onExpand }: FindingCardProps) {
     state.collapsedFindingIds.includes(finding.id),
   );
   const toggleFinding = useRunDetailsStore((state) => state.toggleFinding);
+  const mode = useDiffViewMode((state) => state.mode);
 
   const snippet = withExpandedContext(finding.snippet, expansions);
+  const anchorId = positionAnchorId(finding.position);
+
+  // A link to a finding has to show it, even when this reader folded it away earlier.
+  // The ref keeps that to the moment the page opens: a later collapse is the reader's.
+  const anchorCheckedRef = useRef(false);
+
+  useEffect(() => {
+    if (anchorCheckedRef.current) {
+      return;
+    }
+
+    anchorCheckedRef.current = true;
+
+    if (isCollapsed && window.location.hash === `#${anchorId}`) {
+      toggleFinding(finding.id);
+    }
+  }, [anchorId, finding.id, isCollapsed, toggleFinding]);
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex flex-col gap-2 p-3">
       <header className="flex items-center gap-2">
         <Button
           variant="ghost"
@@ -75,6 +96,8 @@ export function FindingCard({ finding, onExpand }: FindingCardProps) {
       {isCollapsed ? null : (
         <DiffSnippet
           file={snippet}
+          mode={mode}
+          showFileHeader={false}
           fileLineCount={finding.fileLineCount}
           commentPosition={finding.position}
           loadingGapId={loadingGapId}

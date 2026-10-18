@@ -7,6 +7,8 @@ import { type ContextGap, type ExpandDirection } from "../domain/types";
 
 export interface ExpandContextRowProps {
   readonly gap: ContextGap;
+  /** Columns to span: four in the unified view, six side by side. */
+  readonly columnCount?: number;
   readonly isLoading?: boolean;
   readonly onExpand: (gap: ContextGap, direction: ExpandDirection) => void;
 }
@@ -14,6 +16,7 @@ export interface ExpandContextRowProps {
 /** The "unfold" row between hunks: shows how much code is hidden and how to reveal it. */
 export function ExpandContextRow({
   gap,
+  columnCount = 4,
   isLoading = false,
   onExpand,
 }: ExpandContextRowProps) {
@@ -23,7 +26,7 @@ export function ExpandContextRow({
 
   return (
     <tr className="bg-surface-muted">
-      <td colSpan={4} className="px-2 py-1">
+      <td colSpan={columnCount} className="px-2 py-1">
         {isLoading ? (
           <Skeleton className="h-5 w-full" />
         ) : (

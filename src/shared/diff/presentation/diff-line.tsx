@@ -33,6 +33,7 @@ export interface DiffLineProps {
   readonly children?: ReactNode;
 }
 
+/** One row of the unified view: both line numbers, the marker and the code. */
 export function DiffLine({
   line,
   isHighlighted = false,

@@ -32,10 +32,19 @@ async function startMocks(): Promise<void> {
 
 startThemeSync();
 
-void startMocks().then(() => {
-  createRoot(container).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  );
-});
+void startMocks()
+  .catch((error: unknown) => {
+    // A browser that refuses to register the service worker (some embedded views do)
+    // must still get the console: requests then fail honestly instead of a blank page.
+    console.warn(
+      "Mock API did not start; requests will go to the real API.",
+      error,
+    );
+  })
+  .finally(() => {
+    createRoot(container).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+  });
