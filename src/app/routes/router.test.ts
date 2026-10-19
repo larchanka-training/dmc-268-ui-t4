@@ -42,6 +42,7 @@ const runs: RunsRepository = {
   listActiveRuns: notUsed,
   listRunHistory: notUsed,
   getRunDetails: notUsed,
+  getFindingContext: notUsed,
   getFileLines: notUsed,
 };
 

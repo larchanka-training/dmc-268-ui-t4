@@ -25,6 +25,13 @@ export interface Finding {
   readonly publishedAt: string;
   /** The comment on GitHub. */
   readonly externalUrl: string;
+}
+
+/**
+ * The code a finding points at. The API rebuilds it from the forge on request and stores
+ * nothing, so it arrives separately from the finding and may be unavailable.
+ */
+export interface FindingContext {
   /** The part of the diff the comment is anchored to. */
   readonly snippet: DiffFile;
   /** Length of the file at the reviewed revision; bounds how far context can unfold. */

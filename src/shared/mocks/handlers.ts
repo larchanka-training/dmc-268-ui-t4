@@ -5,21 +5,35 @@ import { currentScenario } from "./scenario";
 import { browserStorage, createMockSession } from "./session";
 import {
   PAYMENT_SERVICE_FILE,
-  activeRun,
-  completedRun,
-  completedRunDetails,
-  failedRun,
-  failedRunDetails,
-  findingOutsideDiff,
+  activeJob,
+  activeJobDetail,
+  completedJob,
+  completedJobDetail,
+  failedJob,
+  failedJobDetail,
+  findingContexts,
+  findingWithoutContext,
   findings,
-  olderRuns,
+  olderJobs,
   sessionFor,
 } from "./state";
 
 const BASE = "/api";
 
-const history = [completedRun, failedRun, ...olderRuns];
+const history = [completedJob, failedJob, ...olderJobs];
 const PAGE_SIZE = 8;
+
+const notFound = () =>
+  HttpResponse.json({ error: "not_found" }, { status: 404 });
+
+const jobDetails: Record<string, unknown> = {
+  [completedJob.id]: {
+    ...completedJobDetail,
+    findings: [...findings, findingWithoutContext],
+  },
+  [failedJob.id]: failedJobDetail,
+  [activeJob.id]: activeJobDetail,
+};
 
 const scenario = currentScenario();
 
@@ -102,45 +116,44 @@ export const handlers = [
     },
   ),
 
-  http.get(`${BASE}/runs/active`, () => {
-    if (!session.authorize()) {
-      return unauthorized();
-    }
-
-    return HttpResponse.json({
-      items: scenario.hasActiveRuns ? [activeRun] : [],
-    });
-  }),
-
-  http.get(`${BASE}/runs`, ({ request }) => {
+  http.get(`${BASE}/jobs`, ({ request }) => {
     if (!session.authorize()) {
       return unauthorized();
     }
 
     const url = new URL(request.url);
     const status = url.searchParams.get("status");
+
+    if (status === "active") {
+      return HttpResponse.json({
+        items: scenario.hasActiveRuns ? [activeJob] : [],
+        next_cursor: null,
+      });
+    }
+
     const repository = url.searchParams.get("repository");
     const author = url.searchParams.get("author");
     const query = url.searchParams.get("q");
     const cursor = Number(url.searchParams.get("cursor") ?? "0");
 
-    const filtered = history.filter((run) => {
-      if (status !== null && run.status !== status) {
+    const filtered = history.filter((job) => {
+      if (status !== null && job.status !== status) {
         return false;
       }
 
-      const fullName = `${run.pull_request.owner}/${run.pull_request.repo}`;
-
-      if (repository !== null && !fullName.includes(repository)) {
+      if (
+        repository !== null &&
+        !job.pull_request.repo_full_name.includes(repository)
+      ) {
         return false;
       }
 
-      if (author !== null && !run.pull_request.author.includes(author)) {
+      if (author !== null && !job.pull_request.author.includes(author)) {
         return false;
       }
 
       if (query !== null) {
-        const haystack = `${run.pull_request.title} #${String(run.pull_request.number)}`;
+        const haystack = `${job.pull_request.title} #${String(job.pull_request.number)}`;
 
         return haystack.toLowerCase().includes(query.toLowerCase());
       }
@@ -157,27 +170,32 @@ export const handlers = [
     });
   }),
 
-  http.get(`${BASE}/runs/:runId`, ({ params }) => {
+  http.get(`${BASE}/jobs/:jobId`, ({ params }) => {
     if (!session.authorize()) {
       return unauthorized();
     }
 
-    if (params["runId"] === failedRun.id) {
-      return HttpResponse.json({ run: failedRunDetails, findings: [] });
-    }
+    const detail = jobDetails[String(params["jobId"])];
 
-    if (params["runId"] === completedRun.id) {
-      // The invalid finding is included on purpose: the mappers must drop it.
-      return HttpResponse.json({
-        run: completedRunDetails,
-        findings: [...findings, findingOutsideDiff],
-      });
-    }
-
-    return HttpResponse.json({ error: "not_found" }, { status: 404 });
+    return detail === undefined ? notFound() : HttpResponse.json(detail);
   }),
 
-  http.get(`${BASE}/runs/:runId/file-lines`, ({ request }) => {
+  // Rebuilt from the forge in reality; a finding on a commit that is gone answers 409.
+  http.get(`${BASE}/jobs/:jobId/findings/:findingId/context`, ({ params }) => {
+    if (!session.authorize()) {
+      return unauthorized();
+    }
+
+    const context = findingContexts[String(params["findingId"])];
+
+    if (params["findingId"] === findingWithoutContext.id) {
+      return HttpResponse.json({ error: "commit_gone" }, { status: 409 });
+    }
+
+    return context === undefined ? notFound() : HttpResponse.json(context);
+  }),
+
+  http.get(`${BASE}/jobs/:jobId/file-lines`, ({ request }) => {
     if (!session.authorize()) {
       return unauthorized();
     }

@@ -126,50 +126,45 @@ never shifts the page under you.
 
 ## 6. Data contract
 
-The backend contract is proposed by the frontend and served by MSW until the real API
-exists. The diff arrives **structured**, not as raw unified diff text:
+The runs module speaks the backend's jobs API, specified in
+`dmc-268-api-t4/docs/openapi.yaml`; MSW serves the same shapes in development and in the
+demo build. The console calls a job a **run**; only `infrastructure/` knows the wire names.
+
+| Endpoint                                                         | Used for                                     |
+| :--------------------------------------------------------------- | :------------------------------------------- |
+| `GET /api/jobs?status=active`                                    | the "Active now" panel and the Overview card |
+| `GET /api/jobs?status=&repository=&author=&from=&to=&q=&cursor=` | the history                                  |
+| `GET /api/jobs/{job_id}`                                         | the run page: job, `stage`, steps, findings  |
+| `GET /api/jobs/{job_id}/findings/{finding_id}/context`           | the code under one finding                   |
+| `GET /api/jobs/{job_id}/file-lines?path=&from=&to=`              | unfolding context                            |
+
+The mappers bridge two differences:
+
+- **Status.** The API keeps the job `status` (`QUEUED`, `PROCESSING`, `RETRYING`,
+  `COMPLETED`, `FAILED`, `SUPERSEDED`, `SKIPPED`) apart from the pipeline `stage`
+  (`collecting_context` … `publishing`). The badge shows the stage while a job is
+  `PROCESSING`; the list carries no stage, so a job there reads "In progress".
+- **Stages.** The timeline's four stages are folded from `steps`, each of which carries its
+  `stage`; only the latest `attempt` counts, so a retry does not stretch the stages.
+
+The diff arrives **structured**, not as raw unified diff text, and **separately from the
+finding**: the API rebuilds it from the forge on request and stores nothing, so it can
+answer `409` for an old review.
 
 ```jsonc
+// GET /api/jobs/{job_id}/findings/{finding_id}/context
 {
-  "run": {
-    "id": "run_8f21",
-    "pull_request": {
-      "owner": "acme",
-      "repo": "payments",
-      "number": 412,
-      "...": "",
-    },
-    "status": "completed",
-    "stages": [
-      { "name": "reviewing", "started_at": "...", "finished_at": "..." },
-    ],
-    "summary": "…",
-    "failure_reason": null,
-  },
-  "findings": [
-    {
-      "id": "finding_1",
-      "file_path": "src/payment_service.rb",
-      "line": 142,
-      "side": "RIGHT", // GitHub's LEFT = old file, RIGHT = new file
-      "severity": "high",
-      "category": "correctness",
-      "message": "…",
-      "suggestion": { "before": ["…"], "after": ["…"] },
-      "external_url": "https://github.com/acme/payments/pull/412#discussion_r1",
-      "snippet": {
-        "path": "…",
-        "status": "modified",
-        "hunks": [{ "lines": ["…"] }],
-      },
-      "file_line_count": 180,
-    },
+  "path": "src/payment_service.rb",
+  "old_path": null,
+  "status": "modified",
+  "file_line_count": 180,
+  "hunks": [
+    { "id": "…", "new_start": 138, "lines": [{ "type": "added", "…": "" }] },
   ],
 }
 ```
 
-Endpoints: `GET /api/me`, `GET /api/runs/active`, `GET /api/runs`, `GET /api/runs/:id`,
-`GET /api/runs/:id/file-lines?path=&from=&to=` (unfolding context), and for signing in
+Other endpoints: `GET /api/me`, and for signing in
 `GET /api/auth/github` (a page navigation), `GET /api/auth/github/callback` (GitHub's
 redirect, handled by the backend) and `POST /api/auth/logout`. Repositories:
 `GET /api/repositories?cursor=` (with `total_count`), `GET /api/repositories/connect-url` and
@@ -177,9 +172,9 @@ redirect, handled by the backend) and `POST /api/auth/logout`. Repositories:
 (see [Spec 002](./docs/specs/002-account-layout.md)).
 
 Every response passes a Zod schema in `infrastructure/dto.ts` before mappers turn it into
-domain types. Findings whose position is not part of their snippet are **dropped**, the
-same check the backend performs before publishing a comment
-(`isPositionInDiff`, `toValidFindings`).
+domain types. A finding whose context cannot be loaded, or whose position is not part of
+the context, is shown **without code**: its `path:line`, the comment and the link to
+GitHub, never anchored to the wrong line (`getFindingContext`, `isPositionInDiff`).
 
 ### Authentication
 

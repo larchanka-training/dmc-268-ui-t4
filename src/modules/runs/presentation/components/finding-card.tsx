@@ -6,23 +6,19 @@ import {
   type ContextGap,
   type ExpandDirection,
 } from "@/shared/diff/domain/types";
-import { DiffSnippet } from "@/shared/diff/presentation/diff-snippet";
-import { useDiffViewMode } from "@/shared/diff/presentation/diff-view-mode";
 import { InlineFinding } from "@/shared/diff/presentation/inline-finding";
 import { SuggestionBlock } from "@/shared/diff/presentation/suggestion-block";
 import { Button } from "@/shared/ui/button";
 
 import { type Finding } from "../../domain/finding";
-import {
-  type HunkExpansion,
-  useRunDetailsStore,
-  withExpandedContext,
-} from "../run-details-store";
+import { useRunDetailsStore } from "../run-details-store";
 
 import { CategoryBadge } from "./category-badge";
+import { FindingCode } from "./finding-code";
 import { SeverityBadge } from "./severity-badge";
 
 export interface FindingCardProps {
+  readonly runId: string;
   readonly finding: Finding;
   readonly onExpand: (
     finding: Finding,
@@ -31,25 +27,16 @@ export interface FindingCardProps {
   ) => void;
 }
 
-/** Stable empty value: returning a fresh [] from the selector would re-render forever. */
-const NO_EXPANSIONS: readonly HunkExpansion[] = [];
-
 /**
  * One published review comment: the code it points at, what the agent said and the change
  * it proposes. Everything here is read-only — the conversation itself lives on GitHub.
  */
-export function FindingCard({ finding, onExpand }: FindingCardProps) {
-  const expansions =
-    useRunDetailsStore((state) => state.expansions[finding.id]) ??
-    NO_EXPANSIONS;
-  const loadingGapId = useRunDetailsStore((state) => state.loadingGapId);
+export function FindingCard({ runId, finding, onExpand }: FindingCardProps) {
   const isCollapsed = useRunDetailsStore((state) =>
     state.collapsedFindingIds.includes(finding.id),
   );
   const toggleFinding = useRunDetailsStore((state) => state.toggleFinding);
-  const mode = useDiffViewMode((state) => state.mode);
 
-  const snippet = withExpandedContext(finding.snippet, expansions);
   const anchorId = positionAnchorId(finding.position);
 
   // A link to a finding has to show it, even when this reader folded it away earlier.
@@ -94,16 +81,10 @@ export function FindingCard({ finding, onExpand }: FindingCardProps) {
       </header>
 
       {isCollapsed ? null : (
-        <DiffSnippet
-          file={snippet}
-          mode={mode}
-          showFileHeader={false}
-          fileLineCount={finding.fileLineCount}
-          commentPosition={finding.position}
-          loadingGapId={loadingGapId}
-          onExpand={(gap, direction) => {
-            onExpand(finding, gap, direction);
-          }}
+        <FindingCode
+          runId={runId}
+          finding={finding}
+          onExpand={onExpand}
           comment={
             <InlineFinding
               author="Review agent"
