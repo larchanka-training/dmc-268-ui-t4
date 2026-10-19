@@ -130,7 +130,7 @@ export const completedRun = {
   created_at: "2026-09-15T09:12:01.000Z",
   started_at: "2026-09-15T09:12:03.000Z",
   finished_at: "2026-09-15T09:13:31.000Z",
-  finding_count: 3,
+  finding_count: 5,
 } as const;
 
 export const failedRun = {
@@ -449,6 +449,127 @@ export const findings = [
       ],
     },
     file_line_count: 120,
+  },
+  {
+    // TypeScript, so the viewer is exercised with a second grammar, and a replacement
+    // that pairs line for line in the side-by-side view.
+    id: "finding_4",
+    file_path: "src/billing/invoice-total.ts",
+    line: 24,
+    side: "RIGHT",
+    severity: "low",
+    category: "maintainability",
+    message:
+      "`any` hides the shape of a line item here, so a missing price would only surface at runtime. The type is already exported two files away.",
+    suggestion: null,
+    published_at: "2026-09-15T09:13:31.000Z",
+    external_url: "https://github.com/acme/payments/pull/412#discussion_r4",
+    snippet: {
+      path: "src/billing/invoice-total.ts",
+      old_path: null,
+      status: "modified",
+      hunks: [
+        {
+          id: "hunk_4",
+          old_start: 20,
+          old_lines: 5,
+          new_start: 20,
+          new_lines: 6,
+          header: "export function invoiceTotal(",
+          lines: [
+            {
+              type: "context",
+              old_line: 20,
+              new_line: 20,
+              content: "export function invoiceTotal(",
+            },
+            {
+              type: "removed",
+              old_line: 21,
+              new_line: null,
+              content: "  items: LineItem[],",
+            },
+            {
+              type: "added",
+              old_line: null,
+              new_line: 21,
+              content: "  items: any[],",
+            },
+            {
+              type: "context",
+              old_line: 22,
+              new_line: 22,
+              content: "): number {",
+            },
+            {
+              type: "context",
+              old_line: 23,
+              new_line: 23,
+              content: "  // Totals are in minor units; never round here.",
+            },
+            {
+              type: "added",
+              old_line: null,
+              new_line: 24,
+              content:
+                "  return items.reduce((sum, item) => sum + item.price, 0);",
+            },
+          ],
+        },
+      ],
+    },
+    file_line_count: 64,
+  },
+  {
+    // A Mermaid diagram: we have no grammar for it, so the viewer must stay plain and
+    // still render the finding correctly.
+    id: "finding_5",
+    file_path: "diagrams/payment-retry.mmd",
+    line: 7,
+    side: "RIGHT",
+    severity: "medium",
+    category: "correctness",
+    message:
+      "The diagram shows the retry loop returning to `charge`, but the code retries `authorise`. One of the two is wrong, and the diagram is the cheaper one to fix.",
+    suggestion: null,
+    published_at: "2026-09-15T09:13:31.000Z",
+    external_url: "https://github.com/acme/payments/pull/412#discussion_r5",
+    snippet: {
+      path: "diagrams/payment-retry.mmd",
+      old_path: null,
+      status: "modified",
+      hunks: [
+        {
+          id: "hunk_5",
+          old_start: 5,
+          old_lines: 3,
+          new_start: 5,
+          new_lines: 4,
+          header: null,
+          lines: [
+            {
+              type: "context",
+              old_line: 5,
+              new_line: 5,
+              content: "  provider-->>service: 502",
+            },
+            {
+              type: "context",
+              old_line: 6,
+              new_line: 6,
+              content: "  service->>service: backoff",
+            },
+            {
+              type: "added",
+              old_line: null,
+              new_line: 7,
+              content: "  service->>provider: charge (retry)",
+            },
+          ],
+        },
+      ],
+    },
+    file_line_count: 18,
   },
 ] as const;
 
