@@ -125,50 +125,45 @@ refetchInterval: (query) =>
 
 ## 6. Контракт данных
 
-Контракт предлагает фронтенд, а отдаёт его MSW, пока нет настоящего API. Дифф приходит
-**структурированным**, а не текстом unified diff:
+Модуль runs работает с jobs API бэкенда, описанным в `dmc-268-api-t4/docs/openapi.yaml`;
+MSW отдаёт те же формы в разработке и в демо-сборке. В консоли job называется **run**;
+имена с провода знает только `infrastructure/`.
+
+| Эндпоинт                                                         | Для чего                                       |
+| :--------------------------------------------------------------- | :--------------------------------------------- |
+| `GET /api/jobs?status=active`                                    | панель «Active now» и карточка на Overview     |
+| `GET /api/jobs?status=&repository=&author=&from=&to=&q=&cursor=` | история                                        |
+| `GET /api/jobs/{job_id}`                                         | страница запуска: job, `stage`, шаги, findings |
+| `GET /api/jobs/{job_id}/findings/{finding_id}/context`           | код под одним finding                          |
+| `GET /api/jobs/{job_id}/file-lines?path=&from=&to=`              | раскрытие контекста                            |
+
+Мапперы сглаживают два различия:
+
+- **Статус.** API хранит `status` задачи (`QUEUED`, `PROCESSING`, `RETRYING`,
+  `COMPLETED`, `FAILED`, `SUPERSEDED`, `SKIPPED`) отдельно от стадии пайплайна `stage`
+  (`collecting_context` … `publishing`). Пока задача `PROCESSING`, бейдж показывает стадию;
+  в списке стадии нет, поэтому там задача показывается как «In progress».
+- **Стадии.** Четыре стадии таймлайна собираются из `steps`, у каждого шага есть свой
+  `stage`; учитывается только последний `attempt`, чтобы ретрай не растягивал стадии.
+
+Дифф приходит **структурированным**, а не текстом unified diff, и **отдельно от finding**:
+API пересобирает его из форжа по запросу и ничего не хранит, поэтому для старого ревью
+может ответить `409`.
 
 ```jsonc
+// GET /api/jobs/{job_id}/findings/{finding_id}/context
 {
-  "run": {
-    "id": "run_8f21",
-    "pull_request": {
-      "owner": "acme",
-      "repo": "payments",
-      "number": 412,
-      "...": "",
-    },
-    "status": "completed",
-    "stages": [
-      { "name": "reviewing", "started_at": "...", "finished_at": "..." },
-    ],
-    "summary": "…",
-    "failure_reason": null,
-  },
-  "findings": [
-    {
-      "id": "finding_1",
-      "file_path": "src/payment_service.rb",
-      "line": 142,
-      "side": "RIGHT", // в терминах GitHub: LEFT — старый файл, RIGHT — новый
-      "severity": "high",
-      "category": "correctness",
-      "message": "…",
-      "suggestion": { "before": ["…"], "after": ["…"] },
-      "external_url": "https://github.com/acme/payments/pull/412#discussion_r1",
-      "snippet": {
-        "path": "…",
-        "status": "modified",
-        "hunks": [{ "lines": ["…"] }],
-      },
-      "file_line_count": 180,
-    },
+  "path": "src/payment_service.rb",
+  "old_path": null,
+  "status": "modified",
+  "file_line_count": 180,
+  "hunks": [
+    { "id": "…", "new_start": 138, "lines": [{ "type": "added", "…": "" }] },
   ],
 }
 ```
 
-Эндпоинты: `GET /api/me`, `GET /api/runs/active`, `GET /api/runs`, `GET /api/runs/:id`,
-`GET /api/runs/:id/file-lines?path=&from=&to=` (раскрытие контекста), а для входа —
+Остальные эндпоинты: `GET /api/me`, а для входа —
 `GET /api/auth/github` (переход страницы), `GET /api/auth/github/callback` (редирект от
 GitHub, его обрабатывает бэкенд) и `POST /api/auth/logout`. Репозитории:
 `GET /api/repositories?cursor=` (с `total_count`), `GET /api/repositories/connect-url` и
@@ -176,9 +171,9 @@ GitHub, его обрабатывает бэкенд) и `POST /api/auth/logout`
 (см. [Spec 002](./docs/specs/002-account-layout.md)).
 
 Каждый ответ проходит Zod-схему из `infrastructure/dto.ts`, и только потом мапперы
-превращают его в доменные типы. Findings, чья позиция отсутствует в приложенном фрагменте
-диффа, **отбрасываются** — это та же проверка, которую бэкенд делает перед публикацией
-комментария (`isPositionInDiff`, `toValidFindings`).
+превращают его в доменные типы. Finding, чей контекст не загрузился или не содержит его
+позицию, показывается **без кода**: `path:line`, комментарий и ссылка на GitHub — но
+никогда не привязывается к чужой строке (`getFindingContext`, `isPositionInDiff`).
 
 ### Аутентификация
 

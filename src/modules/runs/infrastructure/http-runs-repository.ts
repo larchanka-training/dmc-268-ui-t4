@@ -6,19 +6,36 @@ import {
   type RunHistoryPage,
   type RunsRepository,
 } from "../application/ports";
-import { type RunFilters } from "../domain/filters";
+import { type RunFilters, type RunStatusFilter } from "../domain/filters";
 
 import {
-  activeRunsDtoSchema,
+  type JobStatusDto,
   fileLinesDtoSchema,
-  runDetailsResponseDtoSchema,
-  runHistoryPageDtoSchema,
+  findingContextDtoSchema,
+  jobDetailDtoSchema,
+  jobsPageDtoSchema,
 } from "./dto";
-import { toRun, toRunDetails, toValidFindings } from "./mappers";
+import { toFinding, toFindingContext, toRun, toRunDetails } from "./mappers";
+
+const STATUS_PARAM: Record<RunStatusFilter, JobStatusDto | undefined> = {
+  all: undefined,
+  completed: "COMPLETED",
+  failed: "FAILED",
+};
+
+/**
+ * The API pages at most 100 jobs. The active list is not paginated in the console: more
+ * than a page of reviews in flight at once is not a case the panel is built for.
+ */
+const ACTIVE_LIMIT = 100;
+
+function jobPath(runId: string, ...rest: string[]): string {
+  return `/jobs/${[runId, ...rest].map(encodeURIComponent).join("/")}`;
+}
 
 function toSearchParams(filters: RunFilters, cursor: string | undefined) {
   return {
-    status: filters.status === "all" ? undefined : filters.status,
+    status: STATUS_PARAM[filters.status],
     repository: filters.repository,
     author: filters.author,
     from: filters.from,
@@ -28,48 +45,59 @@ function toSearchParams(filters: RunFilters, cursor: string | undefined) {
   };
 }
 
+/** Speaks the jobs API; the console calls a job a run. */
 export function createHttpRunsRepository(http: HttpClient): RunsRepository {
   return {
     async listActiveRuns(signal) {
-      const dto = await http.get("/runs/active", {
-        schema: activeRunsDtoSchema,
+      const dto = await http.get("/jobs", {
+        schema: jobsPageDtoSchema,
+        searchParams: { status: "active", limit: ACTIVE_LIMIT },
         signal,
       });
 
-      return dto.items.map(toRun);
+      return dto.items.map((item) => toRun(item));
     },
 
     async listRunHistory({ filters, cursor }, signal): Promise<RunHistoryPage> {
-      const dto = await http.get("/runs", {
-        schema: runHistoryPageDtoSchema,
+      const dto = await http.get("/jobs", {
+        schema: jobsPageDtoSchema,
         searchParams: toSearchParams(filters, cursor),
         signal,
       });
 
-      return { items: dto.items.map(toRun), nextCursor: dto.next_cursor };
+      return {
+        items: dto.items.map((item) => toRun(item)),
+        nextCursor: dto.next_cursor,
+      };
     },
 
     async getRunDetails(runId, signal): Promise<RunDetailsResult> {
-      const dto = await http.get(`/runs/${encodeURIComponent(runId)}`, {
-        schema: runDetailsResponseDtoSchema,
+      const dto = await http.get(jobPath(runId), {
+        schema: jobDetailDtoSchema,
         signal,
       });
 
       return {
-        run: toRunDetails(dto.run),
-        findings: toValidFindings(dto.findings),
+        run: toRunDetails(dto),
+        findings: dto.findings.map(toFinding),
       };
     },
 
-    async getFileLines({ runId, path, from, to }: FileLinesQuery, signal) {
+    async getFindingContext(runId, findingId, signal) {
       const dto = await http.get(
-        `/runs/${encodeURIComponent(runId)}/file-lines`,
-        {
-          schema: fileLinesDtoSchema,
-          searchParams: { path, from, to },
-          signal,
-        },
+        jobPath(runId, "findings", findingId, "context"),
+        { schema: findingContextDtoSchema, signal },
       );
+
+      return toFindingContext(dto);
+    },
+
+    async getFileLines({ runId, path, from, to }: FileLinesQuery, signal) {
+      const dto = await http.get(jobPath(runId, "file-lines"), {
+        schema: fileLinesDtoSchema,
+        searchParams: { path, from, to },
+        signal,
+      });
 
       return dto.lines;
     },

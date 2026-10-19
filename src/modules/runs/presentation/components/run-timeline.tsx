@@ -1,4 +1,4 @@
-import { CheckCircle2, CircleDashed, Loader2 } from "lucide-react";
+import { CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
 
 import { formatDuration } from "@/shared/lib/format";
 
@@ -22,12 +22,15 @@ export function RunTimeline({ run }: { run: RunDetails }) {
     <ol className="flex flex-col gap-2">
       {RUN_STAGES.map((name) => {
         const stage = run.stages.find((candidate) => candidate.name === name);
+        const isFailed = stage?.failed === true;
         const isDone = stage?.finishedAt != null;
         const isRunning = stage !== undefined && !isDone;
 
         return (
           <li key={name} className="flex items-center gap-2 text-sm">
-            {isDone ? (
+            {isFailed ? (
+              <XCircle className="size-4 text-severity-critical" aria-hidden />
+            ) : isDone ? (
               <CheckCircle2 className="size-4 text-severity-low" aria-hidden />
             ) : isRunning ? (
               <Loader2

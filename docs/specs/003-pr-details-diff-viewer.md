@@ -134,17 +134,20 @@ the line and expands the card that owns it, even when the reader had collapsed i
 
 No change. The page uses what the merged contract already defines:
 
-| Endpoint                        | Used for                                            |
-| :------------------------------ | :-------------------------------------------------- |
-| `GET /jobs/{job_id}`            | the header, the summary, the steps and the findings |
-| `GET /jobs/{job_id}/file-lines` | unfolding context inside a snippet                  |
+| Endpoint                                           | Used for                                            |
+| :------------------------------------------------- | :-------------------------------------------------- |
+| `GET /jobs/{job_id}`                               | the header, the summary, the steps and the findings |
+| `GET /jobs/{job_id}/findings/{finding_id}/context` | the snippet under each finding, loaded per card     |
+| `GET /jobs/{job_id}/file-lines`                    | unfolding context inside a snippet                  |
 
 `severity` is the four-value set from the contract (`critical`, `high`, `medium`, `low`).
 The three labels in the issue (Critical, Warning, Info) are a coarser version of the same
 scale; the console shows what the API stores. Decision 3.3.
 
-Until the backend ships the jobs endpoints, everything runs on the MSW mocks in
-`src/shared/mocks/`, in the wire format, so switching to the real API changes no component.
+The runs module calls these endpoints directly; the MSW mocks in `src/shared/mocks/` serve
+the same wire format in development and in the demo build. A finding whose context answers
+an error (`409` for a commit or installation that is gone) is shown with its `path:line`
+and the link to GitHub instead of the code.
 
 ## 6. Structure
 
