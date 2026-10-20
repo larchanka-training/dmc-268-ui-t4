@@ -53,6 +53,15 @@ export async function getRunDetails(
   };
 }
 
+/** Live progress of one run; the returned function stops it. */
+export function watchRun(
+  { runs }: RunsDependencies,
+  runId: string,
+  onChange: () => void,
+): () => void {
+  return runs.watchRun(runId, onChange);
+}
+
 /**
  * The code a finding points at, or null when it cannot be drawn: the snippet does not
  * contain the commented line, so anchoring the comment to it would mislead (see "Diff

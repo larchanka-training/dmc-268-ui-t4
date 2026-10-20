@@ -64,7 +64,7 @@ export function createAppDependencies({
         MOCKS_AVAILABLE && env.enableMocks ? withMockSignIn(session) : session,
       notifier: createBroadcastChannelNotifier(),
     },
-    runs: { runs: createHttpRunsRepository(http) },
+    runs: { runs: createHttpRunsRepository(http, env.apiBaseUrl) },
     repositories: { repositories: createHttpConnectedReposApi(http) },
   };
 }

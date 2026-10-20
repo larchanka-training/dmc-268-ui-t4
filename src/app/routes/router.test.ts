@@ -44,6 +44,7 @@ const runs: RunsRepository = {
   getRunDetails: notUsed,
   getFindingContext: notUsed,
   getFileLines: notUsed,
+  watchRun: notUsed,
 };
 
 const repositories: ConnectedReposApi = {

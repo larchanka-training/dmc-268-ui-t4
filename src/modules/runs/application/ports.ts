@@ -49,4 +49,9 @@ export interface RunsRepository {
     query: FileLinesQuery,
     signal?: AbortSignal,
   ) => Promise<readonly string[]>;
+  /**
+   * Calls `onChange` whenever the run moves on (a stage starts or ends, the status
+   * changes) until it finishes. Returns the function that stops watching.
+   */
+  watchRun: (runId: string, onChange: () => void) => () => void;
 }

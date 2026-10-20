@@ -33,6 +33,13 @@ function jobPath(runId: string, ...rest: string[]): string {
   return `/jobs/${[runId, ...rest].map(encodeURIComponent).join("/")}`;
 }
 
+/**
+ * Events after which the job may look different from what the console fetched. `snapshot`
+ * opens every connection, reconnects included, and the API ignores `Last-Event-ID`, so it
+ * is the only record of what happened while the stream was not open.
+ */
+const CHANGE_EVENTS = ["snapshot", "step", "status"] as const;
+
 function toSearchParams(filters: RunFilters, cursor: string | undefined) {
   return {
     status: STATUS_PARAM[filters.status],
@@ -45,8 +52,15 @@ function toSearchParams(filters: RunFilters, cursor: string | undefined) {
   };
 }
 
-/** Speaks the jobs API; the console calls a job a run. */
-export function createHttpRunsRepository(http: HttpClient): RunsRepository {
+/**
+ * Runs are the backend's review jobs: `/jobs` for the lists and the details, and the
+ * `/jobs/{id}/events` stream for live progress. `baseUrl` is the HTTP client's, since
+ * EventSource opens its own connection.
+ */
+export function createHttpRunsRepository(
+  http: HttpClient,
+  baseUrl: string,
+): RunsRepository {
   return {
     async listActiveRuns(signal) {
       const dto = await http.get("/jobs", {
@@ -100,6 +114,41 @@ export function createHttpRunsRepository(http: HttpClient): RunsRepository {
       });
 
       return dto.lines;
+    },
+
+    watchRun(runId, onChange) {
+      if (typeof EventSource === "undefined") {
+        return () => undefined;
+      }
+
+      // The session cookie authorises the stream, as it does every request.
+      const source = new EventSource(`${baseUrl}${jobPath(runId)}/events`, {
+        withCredentials: true,
+      });
+
+      for (const type of CHANGE_EVENTS) {
+        source.addEventListener(type, onChange);
+      }
+
+      // The job is terminal: the server closes the stream, and reconnecting would only
+      // replay the same snapshot.
+      source.addEventListener("end", () => {
+        source.close();
+        onChange();
+      });
+
+      // EventSource retries a dropped connection by itself. A non-200 answer (401, 404)
+      // closes it for good: refetch, so the HTTP client reports why and the details
+      // fall back to polling.
+      source.addEventListener("error", () => {
+        if (source.readyState === EventSource.CLOSED) {
+          onChange();
+        }
+      });
+
+      return () => {
+        source.close();
+      };
     },
   };
 }

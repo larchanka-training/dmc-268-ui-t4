@@ -1,12 +1,11 @@
-import { HttpResponse, http } from "msw";
+import { HttpResponse, http, sse } from "msw";
 
+import { type MockJobEvent, createMockActiveJob } from "./active-job";
 import { createMockRepositories } from "./repositories";
 import { currentScenario } from "./scenario";
 import { browserStorage, createMockSession } from "./session";
 import {
   PAYMENT_SERVICE_FILE,
-  activeJob,
-  activeJobDetail,
   completedJob,
   completedJobDetail,
   failedJob,
@@ -26,15 +25,6 @@ const PAGE_SIZE = 8;
 const notFound = () =>
   HttpResponse.json({ error: "not_found" }, { status: 404 });
 
-const jobDetails: Record<string, unknown> = {
-  [completedJob.id]: {
-    ...completedJobDetail,
-    findings: [...findings, findingWithoutContext],
-  },
-  [failedJob.id]: failedJobDetail,
-  [activeJob.id]: activeJobDetail,
-};
-
 const scenario = currentScenario();
 
 // Created when the mocks start, i.e. on every full page load, before the app renders.
@@ -48,6 +38,11 @@ const repositories = createMockRepositories({
   scenario,
   storage: browserStorage(),
 });
+
+const activeJob = scenario.hasActiveRuns ? createMockActiveJob() : null;
+
+/** How often the mock event stream looks for progress, like the backend's poll. */
+const EVENTS_POLL_MS = 1000;
 
 const unauthorized = () =>
   HttpResponse.json({ error: "no_session" }, { status: 401 });
@@ -126,7 +121,8 @@ export const handlers = [
 
     if (status === "active") {
       return HttpResponse.json({
-        items: scenario.hasActiveRuns ? [activeJob] : [],
+        items:
+          activeJob === null || activeJob.isDone() ? [] : [activeJob.job()],
         next_cursor: null,
       });
     }
@@ -135,8 +131,9 @@ export const handlers = [
     const author = url.searchParams.get("author");
     const query = url.searchParams.get("q");
     const cursor = Number(url.searchParams.get("cursor") ?? "0");
+    const all = activeJob === null ? history : [activeJob.job(), ...history];
 
-    const filtered = history.filter((job) => {
+    const filtered = all.filter((job) => {
       if (status !== null && job.status !== status) {
         return false;
       }
@@ -175,10 +172,76 @@ export const handlers = [
       return unauthorized();
     }
 
-    const detail = jobDetails[String(params["jobId"])];
+    if (params["jobId"] === failedJob.id) {
+      return HttpResponse.json({ ...failedJobDetail, findings: [] });
+    }
 
-    return detail === undefined ? notFound() : HttpResponse.json(detail);
+    if (params["jobId"] === completedJob.id) {
+      // findingWithoutContext exercises the 409 fallback in FindingCode.
+      return HttpResponse.json({
+        ...completedJobDetail,
+        findings: [...findings, findingWithoutContext],
+      });
+    }
+
+    if (activeJob !== null && params["jobId"] === activeJob.id) {
+      return HttpResponse.json(activeJob.detail());
+    }
+
+    return notFound();
   }),
+
+  // Like the backend: a snapshot first, then each change as it happens, and `end` once
+  // the job is terminal.
+  sse<{ snapshot: unknown; step: unknown; status: unknown; end: unknown }>(
+    `${BASE}/jobs/:jobId/events`,
+    ({ params, client }) => {
+      if (activeJob === null || params["jobId"] !== activeJob.id) {
+        client.close();
+
+        return;
+      }
+
+      const job = activeJob;
+      const send = (event: MockJobEvent) => {
+        client.send({
+          id: String(event.data.seq),
+          event: event.kind,
+          data: event.data,
+        });
+      };
+      let sent = job.events().length;
+
+      client.send({
+        id: String(sent),
+        event: "snapshot",
+        data: { job_id: job.id, status: job.job().status, seq: sent },
+      });
+
+      const finish = () => {
+        client.send({ event: "end", data: { status: job.job().status } });
+        client.close();
+      };
+
+      if (job.isDone()) {
+        finish();
+
+        return;
+      }
+
+      const timer = window.setInterval(() => {
+        const events = job.events();
+
+        events.slice(sent).forEach(send);
+        sent = events.length;
+
+        if (job.isDone()) {
+          window.clearInterval(timer);
+          finish();
+        }
+      }, EVENTS_POLL_MS);
+    },
+  ),
 
   // Rebuilt from the forge in reality; a finding on a commit that is gone answers 409.
   http.get(`${BASE}/jobs/:jobId/findings/:findingId/context`, ({ params }) => {

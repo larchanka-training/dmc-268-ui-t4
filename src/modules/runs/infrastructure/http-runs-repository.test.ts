@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { type HttpClient, type HttpRequestOptions } from "@/shared/lib/http";
 
@@ -81,11 +81,52 @@ function fakeHttp(answer: (path: string) => unknown) {
   return Object.assign(http, { calls: { get } });
 }
 
+/** A test double for the browser's EventSource, used by `watchRun`. */
+class FakeEventSource {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSED = 2;
+  static last: FakeEventSource | null = null;
+  readonly listeners = new Map<string, (() => void)[]>();
+  readyState = FakeEventSource.CONNECTING;
+
+  readonly url: string;
+  readonly init: EventSourceInit;
+
+  constructor(url: string, init: EventSourceInit) {
+    this.url = url;
+    this.init = init;
+    FakeEventSource.last = this;
+  }
+
+  addEventListener(type: string, listener: () => void) {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+  }
+
+  emit(type: string) {
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener();
+    }
+  }
+
+  get closed() {
+    return this.readyState === FakeEventSource.CLOSED;
+  }
+
+  close() {
+    this.readyState = FakeEventSource.CLOSED;
+  }
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("createHttpRunsRepository", () => {
   it("asks GET /jobs for the active shorthand and shows a stage-less job as processing", async () => {
     const http = fakeHttp(() => ({ items: [WIRE_JOB], next_cursor: null }));
 
-    const [run] = await createHttpRunsRepository(http).listActiveRuns();
+    const [run] = await createHttpRunsRepository(http, "/api").listActiveRuns();
 
     expect(http.calls.get).toHaveBeenCalledWith(
       "/jobs",
@@ -104,7 +145,7 @@ describe("createHttpRunsRepository", () => {
   it("sends the history filters in the API's vocabulary", async () => {
     const http = fakeHttp(() => ({ items: [], next_cursor: "abc" }));
 
-    const page = await createHttpRunsRepository(http).listRunHistory({
+    const page = await createHttpRunsRepository(http, "/api").listRunHistory({
       filters: { ...DEFAULT_RUN_FILTERS, status: "failed", query: "" },
       cursor: "xyz",
     });
@@ -159,8 +200,10 @@ describe("createHttpRunsRepository", () => {
       findings: [WIRE_FINDING],
     }));
 
-    const { run, findings } =
-      await createHttpRunsRepository(http).getRunDetails("job/1");
+    const { run, findings } = await createHttpRunsRepository(
+      http,
+      "/api",
+    ).getRunDetails("job/1");
 
     expect(http.calls.get.mock.calls[0]?.[0]).toBe("/jobs/job%2F1");
     expect(run.status).toBe("reviewing");
@@ -213,7 +256,9 @@ describe("createHttpRunsRepository", () => {
     };
     const http = fakeHttp(() => failed);
 
-    const { run } = await createHttpRunsRepository(http).getRunDetails("1");
+    const { run } = await createHttpRunsRepository(http, "/api").getRunDetails(
+      "1",
+    );
 
     expect(run.status).toBe("failed");
     expect(run.failureReason).toBe("diff_too_large");
@@ -229,10 +274,10 @@ describe("createHttpRunsRepository", () => {
       hunks: [],
     }));
 
-    const context = await createHttpRunsRepository(http).getFindingContext(
-      "job_1",
-      "finding_1",
-    );
+    const context = await createHttpRunsRepository(
+      http,
+      "/api",
+    ).getFindingContext("job_1", "finding_1");
 
     expect(http.calls.get.mock.calls[0]?.[0]).toBe(
       "/jobs/job_1/findings/finding_1/context",
@@ -246,5 +291,87 @@ describe("createHttpRunsRepository", () => {
       },
       fileLineCount: 180,
     });
+  });
+
+  it("watches a run until its stream ends", () => {
+    vi.stubGlobal("EventSource", FakeEventSource);
+    const onChange = vi.fn();
+
+    const stop = createHttpRunsRepository(
+      fakeHttp(() => null),
+      "/api",
+    ).watchRun("job 1", onChange);
+    const source = FakeEventSource.last;
+
+    expect(source?.url).toBe("/api/jobs/job%201/events");
+    expect(source?.init).toEqual({ withCredentials: true });
+
+    source?.emit("snapshot");
+    source?.emit("step");
+    source?.emit("status");
+    source?.emit("end");
+    expect(onChange).toHaveBeenCalledTimes(4);
+    expect(source?.closed).toBe(true);
+
+    stop();
+  });
+
+  it("refetches on the snapshot of a reconnect, which covers the gap", () => {
+    vi.stubGlobal("EventSource", FakeEventSource);
+    const onChange = vi.fn();
+
+    createHttpRunsRepository(
+      fakeHttp(() => null),
+      "/api",
+    ).watchRun("job_1", onChange);
+    const source = FakeEventSource.last;
+
+    // A dropped connection: EventSource is reconnecting, nothing to do yet.
+    source?.emit("error");
+    expect(onChange).not.toHaveBeenCalled();
+
+    source?.emit("snapshot");
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("refetches once the stream gives up, e.g. on a 401", () => {
+    vi.stubGlobal("EventSource", FakeEventSource);
+    const onChange = vi.fn();
+
+    createHttpRunsRepository(
+      fakeHttp(() => null),
+      "/api",
+    ).watchRun("job_1", onChange);
+    const source = FakeEventSource.last;
+
+    if (source) {
+      source.readyState = FakeEventSource.CLOSED;
+    }
+    source?.emit("error");
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the stream when the page stops watching", () => {
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    const stop = createHttpRunsRepository(
+      fakeHttp(() => null),
+      "/api",
+    ).watchRun("job_1", vi.fn());
+    stop();
+
+    expect(FakeEventSource.last?.closed).toBe(true);
+  });
+
+  it("does nothing where EventSource is missing", () => {
+    vi.stubGlobal("EventSource", undefined);
+
+    const stop = createHttpRunsRepository(
+      fakeHttp(() => null),
+      "/api",
+    ).watchRun("job_1", vi.fn());
+
+    expect(stop).not.toThrow();
   });
 });

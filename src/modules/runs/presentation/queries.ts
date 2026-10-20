@@ -1,19 +1,31 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import {
   getFindingContext,
   getRunDetails,
   listActiveRuns,
   listRunHistory,
+  watchRun,
 } from "../application/use-cases";
 import { type RunFilters } from "../domain/filters";
 import { type Finding } from "../domain/finding";
-import { hasActiveRun } from "../domain/run";
+import { hasActiveRun, isActiveStatus } from "../domain/run";
 
 import { useRunsDependencies } from "./dependencies";
 
 /** Polling cadence for runs that are still in flight. */
 const ACTIVE_RUNS_REFETCH_MS = 3000;
+
+/**
+ * Polling cadence for an in-flight run's details. The event stream drives the page; this
+ * only keeps it moving where the stream cannot open or has given up.
+ */
+const RUN_DETAILS_FALLBACK_REFETCH_MS = 15_000;
 
 export const runsQueryKeys = {
   all: ["runs"] as const,
@@ -64,7 +76,33 @@ export function useRunDetails(runId: string) {
   return useQuery({
     queryKey: runsQueryKeys.details(runId),
     queryFn: ({ signal }) => getRunDetails(dependencies, runId, signal),
+    refetchInterval: (query) =>
+      query.state.data && isActiveStatus(query.state.data.run.status)
+        ? RUN_DETAILS_FALLBACK_REFETCH_MS
+        : false,
   });
+}
+
+/**
+ * While a run is in flight, its event stream marks the details (and the active list)
+ * stale on every change, so the timeline moves as soon as a stage does.
+ */
+export function useRunLiveUpdates(runId: string, isActive: boolean) {
+  const dependencies = useRunsDependencies();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!isActive) {
+      return undefined;
+    }
+
+    return watchRun(dependencies, runId, () => {
+      void queryClient.invalidateQueries({
+        queryKey: runsQueryKeys.details(runId),
+      });
+      void queryClient.invalidateQueries({ queryKey: runsQueryKeys.active() });
+    });
+  }, [dependencies, queryClient, runId, isActive]);
 }
 
 /**
