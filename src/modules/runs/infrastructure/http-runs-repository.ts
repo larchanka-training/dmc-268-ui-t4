@@ -33,8 +33,12 @@ function jobPath(runId: string, ...rest: string[]): string {
   return `/jobs/${[runId, ...rest].map(encodeURIComponent).join("/")}`;
 }
 
-/** Events after which the job looks different; `snapshot` only restates it. */
-const CHANGE_EVENTS = ["step", "status"] as const;
+/**
+ * Events after which the job may look different from what the console fetched. `snapshot`
+ * opens every connection, reconnects included, and the API ignores `Last-Event-ID`, so it
+ * is the only record of what happened while the stream was not open.
+ */
+const CHANGE_EVENTS = ["snapshot", "step", "status"] as const;
 
 function toSearchParams(filters: RunFilters, cursor: string | undefined) {
   return {
@@ -131,6 +135,15 @@ export function createHttpRunsRepository(
       source.addEventListener("end", () => {
         source.close();
         onChange();
+      });
+
+      // EventSource retries a dropped connection by itself. A non-200 answer (401, 404)
+      // closes it for good: refetch, so the HTTP client reports why and the details
+      // fall back to polling.
+      source.addEventListener("error", () => {
+        if (source.readyState === EventSource.CLOSED) {
+          onChange();
+        }
       });
 
       return () => {

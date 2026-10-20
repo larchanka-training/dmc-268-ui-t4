@@ -83,9 +83,12 @@ function fakeHttp(answer: (path: string) => unknown) {
 
 /** A test double for the browser's EventSource, used by `watchRun`. */
 class FakeEventSource {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSED = 2;
   static last: FakeEventSource | null = null;
   readonly listeners = new Map<string, (() => void)[]>();
-  closed = false;
+  readyState = FakeEventSource.CONNECTING;
 
   readonly url: string;
   readonly init: EventSourceInit;
@@ -106,8 +109,12 @@ class FakeEventSource {
     }
   }
 
+  get closed() {
+    return this.readyState === FakeEventSource.CLOSED;
+  }
+
   close() {
-    this.closed = true;
+    this.readyState = FakeEventSource.CLOSED;
   }
 }
 
@@ -300,15 +307,61 @@ describe("createHttpRunsRepository", () => {
     expect(source?.init).toEqual({ withCredentials: true });
 
     source?.emit("snapshot");
-    expect(onChange).not.toHaveBeenCalled();
-
     source?.emit("step");
     source?.emit("status");
     source?.emit("end");
-    expect(onChange).toHaveBeenCalledTimes(3);
+    expect(onChange).toHaveBeenCalledTimes(4);
     expect(source?.closed).toBe(true);
 
     stop();
+  });
+
+  it("refetches on the snapshot of a reconnect, which covers the gap", () => {
+    vi.stubGlobal("EventSource", FakeEventSource);
+    const onChange = vi.fn();
+
+    createHttpRunsRepository(
+      fakeHttp(() => null),
+      "/api",
+    ).watchRun("job_1", onChange);
+    const source = FakeEventSource.last;
+
+    // A dropped connection: EventSource is reconnecting, nothing to do yet.
+    source?.emit("error");
+    expect(onChange).not.toHaveBeenCalled();
+
+    source?.emit("snapshot");
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("refetches once the stream gives up, e.g. on a 401", () => {
+    vi.stubGlobal("EventSource", FakeEventSource);
+    const onChange = vi.fn();
+
+    createHttpRunsRepository(
+      fakeHttp(() => null),
+      "/api",
+    ).watchRun("job_1", onChange);
+    const source = FakeEventSource.last;
+
+    if (source) {
+      source.readyState = FakeEventSource.CLOSED;
+    }
+    source?.emit("error");
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the stream when the page stops watching", () => {
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    const stop = createHttpRunsRepository(
+      fakeHttp(() => null),
+      "/api",
+    ).watchRun("job_1", vi.fn());
+    stop();
+
+    expect(FakeEventSource.last?.closed).toBe(true);
   });
 
   it("does nothing where EventSource is missing", () => {

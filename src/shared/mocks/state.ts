@@ -152,10 +152,7 @@ export const olderJobs = Array.from({ length: 12 }, (_, index) => ({
   finding_count: index % 4,
 }));
 
-const activeStartedAt = Date.now() - 42_000;
-const secondsIntoActive = (seconds: number) =>
-  new Date(activeStartedAt + seconds * 1000).toISOString();
-
+/** The timestamps are placeholders: `active-job.ts` replaces them when the mocks start. */
 export const activeJob = {
   ...completedJob,
   id: "run_9a44",
@@ -167,8 +164,8 @@ export const activeJob = {
     head_ref: "feature/provider-timeouts",
   },
   status: "PROCESSING",
-  created_at: secondsIntoActive(0),
-  started_at: secondsIntoActive(0),
+  created_at: "2026-09-15T10:00:00.000Z",
+  started_at: "2026-09-15T10:00:00.000Z",
   finished_at: null,
   finding_count: 0,
 } as const;
@@ -241,36 +238,6 @@ export const failedJobDetail = {
       "2026-09-14T17:41:52.000Z",
       "FAILED",
     ),
-  ],
-  findings: [],
-} as const;
-
-export const activeJobDetail = {
-  ...activeJob,
-  stage: "reviewing",
-  summary: null,
-  error_log: null,
-  external_check_url: null,
-  steps: [
-    step(
-      "CLAIMED",
-      "collecting_context",
-      secondsIntoActive(0),
-      secondsIntoActive(0),
-    ),
-    step(
-      "FETCH_DIFF",
-      "collecting_context",
-      secondsIntoActive(0),
-      secondsIntoActive(9),
-    ),
-    step(
-      "BUILD_CONTEXT",
-      "collecting_context",
-      secondsIntoActive(9),
-      secondsIntoActive(17),
-    ),
-    step("LLM_CALL", "reviewing", secondsIntoActive(17), null),
   ],
   findings: [],
 } as const;
