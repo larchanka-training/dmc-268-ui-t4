@@ -6,20 +6,24 @@ import { currentScenario } from "./scenario";
 import { browserStorage, createMockSession } from "./session";
 import {
   PAYMENT_SERVICE_FILE,
-  completedRun,
-  completedRunDetails,
-  failedRun,
-  failedRunDetails,
-  findingOutsideDiff,
+  completedJob,
+  completedJobDetail,
+  failedJob,
+  failedJobDetail,
+  findingContexts,
+  findingWithoutContext,
   findings,
-  olderRuns,
+  olderJobs,
   sessionFor,
 } from "./state";
 
 const BASE = "/api";
 
-const history = [completedRun, failedRun, ...olderRuns];
+const history = [completedJob, failedJob, ...olderJobs];
 const PAGE_SIZE = 8;
+
+const notFound = () =>
+  HttpResponse.json({ error: "not_found" }, { status: 404 });
 
 const scenario = currentScenario();
 
@@ -168,15 +172,15 @@ export const handlers = [
       return unauthorized();
     }
 
-    if (params["jobId"] === failedRun.id) {
-      return HttpResponse.json({ ...failedRunDetails, findings: [] });
+    if (params["jobId"] === failedJob.id) {
+      return HttpResponse.json({ ...failedJobDetail, findings: [] });
     }
 
-    if (params["jobId"] === completedRun.id) {
-      // The invalid finding is included on purpose: the mappers must drop it.
+    if (params["jobId"] === completedJob.id) {
+      // findingWithoutContext exercises the 409 fallback in FindingCode.
       return HttpResponse.json({
-        ...completedRunDetails,
-        findings: [...findings, findingOutsideDiff],
+        ...completedJobDetail,
+        findings: [...findings, findingWithoutContext],
       });
     }
 
@@ -184,7 +188,7 @@ export const handlers = [
       return HttpResponse.json(activeJob.detail());
     }
 
-    return HttpResponse.json({ error: "not_found" }, { status: 404 });
+    return notFound();
   }),
 
   // Like the backend: a snapshot first, then each change as it happens, and `end` once
@@ -238,6 +242,21 @@ export const handlers = [
       }, EVENTS_POLL_MS);
     },
   ),
+
+  // Rebuilt from the forge in reality; a finding on a commit that is gone answers 409.
+  http.get(`${BASE}/jobs/:jobId/findings/:findingId/context`, ({ params }) => {
+    if (!session.authorize()) {
+      return unauthorized();
+    }
+
+    const context = findingContexts[String(params["findingId"])];
+
+    if (params["findingId"] === findingWithoutContext.id) {
+      return HttpResponse.json({ error: "commit_gone" }, { status: 409 });
+    }
+
+    return context === undefined ? notFound() : HttpResponse.json(context);
+  }),
 
   http.get(`${BASE}/jobs/:jobId/file-lines`, ({ request }) => {
     if (!session.authorize()) {

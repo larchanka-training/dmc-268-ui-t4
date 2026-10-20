@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 /**
- * The wire format. Nothing enters the domain without passing these schemas first:
- * the backend proxies GitHub and an LLM, so responses are treated as untrusted input.
+ * The wire format of the jobs API (`dmc-268-api-t4/docs/openapi.yaml`). Nothing enters the
+ * domain without passing these schemas first: the backend proxies GitHub and an LLM, so
+ * responses are treated as untrusted input.
  */
 
 export const diffLineDtoSchema = z.object({
@@ -22,15 +23,17 @@ export const diffHunkDtoSchema = z.object({
   lines: z.array(diffLineDtoSchema),
 });
 
-export const diffFileDtoSchema = z.object({
-  path: z.string().min(1),
-  old_path: z.string().nullable(),
-  status: z.enum(["added", "modified", "removed", "renamed"]),
-  hunks: z.array(diffHunkDtoSchema),
+export const pullRequestDtoSchema = z.object({
+  provider: z.enum(["github", "gitlab"]),
+  repo_full_name: z.string().min(1),
+  number: z.number().int().positive(),
+  title: z.string(),
+  url: z.url(),
+  author: z.string(),
+  head_ref: z.string(),
+  base_ref: z.string(),
+  head_sha: z.string(),
 });
-
-/** Times carry an explicit offset ("+00:00"), the way the backend serialises them. */
-const instant = z.iso.datetime({ offset: true });
 
 export const jobStatusSchema = z.enum([
   "QUEUED",
@@ -42,59 +45,37 @@ export const jobStatusSchema = z.enum([
   "SKIPPED",
 ]);
 
-export const jobStepNameSchema = z.enum([
-  "CLAIMED",
-  "AUTH",
-  "FETCH_DIFF",
-  "BUILD_CONTEXT",
-  "REDACT",
-  "GATE",
-  "LLM_CALL",
-  "POSTPROCESS",
-  "POST_FEEDBACK",
-  "METER",
+export const jobStageSchema = z.enum([
+  "collecting_context",
+  "reviewing",
+  "validating",
+  "publishing",
 ]);
-
-export const jobPullRequestDtoSchema = z.object({
-  provider: z.string(),
-  repo_full_name: z.string().regex(/^[^/]+\/[^/]+$/),
-  number: z.number().int().positive(),
-  title: z.string(),
-  author: z.string(),
-  head_ref: z.string(),
-  base_ref: z.string(),
-  head_sha: z.string(),
-  url: z.url(),
-});
 
 export const jobDtoSchema = z.object({
   id: z.string().min(1),
-  pull_request: jobPullRequestDtoSchema,
+  pull_request: pullRequestDtoSchema,
   status: jobStatusSchema,
-  trigger: z.string(),
-  created_at: instant,
-  started_at: instant.nullable(),
-  finished_at: instant.nullable(),
+  created_at: z.iso.datetime({ offset: true }),
+  finished_at: z.iso.datetime({ offset: true }).nullish(),
   finding_count: z.number().int().nonnegative(),
-  error_kind: z.string().nullable(),
-  retry_count: z.number().int().nonnegative(),
-  next_attempt_at: instant.nullable(),
+  error_kind: z.string().nullish(),
 });
 
 export const jobStepDtoSchema = z.object({
-  step: jobStepNameSchema,
+  step: z.string().min(1),
   status: z.enum(["RUNNING", "OK", "FAILED", "SKIPPED"]),
-  attempt: z.number().int().nonnegative(),
-  started_at: instant,
-  finished_at: instant.nullable(),
-  error_kind: z.string().nullable(),
+  stage: jobStageSchema,
+  attempt: z.number().int().nonnegative().default(0),
+  started_at: z.iso.datetime({ offset: true }),
+  finished_at: z.iso.datetime({ offset: true }).nullish(),
 });
 
 export const findingDtoSchema = z.object({
   id: z.string().min(1),
-  file_path: z.string().min(1),
+  path: z.string().min(1),
   line: z.number().int().positive(),
-  side: z.enum(["LEFT", "RIGHT"]),
+  side: z.enum(["old", "new"]),
   severity: z.enum(["critical", "high", "medium", "low"]),
   category: z.enum([
     "security",
@@ -106,24 +87,30 @@ export const findingDtoSchema = z.object({
   message: z.string(),
   suggestion: z
     .object({ before: z.array(z.string()), after: z.array(z.string()) })
-    .nullable(),
-  published_at: instant,
+    .nullish(),
+  published_at: z.iso.datetime({ offset: true }),
   external_url: z.url(),
-  snippet: diffFileDtoSchema,
-  file_line_count: z.number().int().positive(),
 });
 
-export const jobPageDtoSchema = z.object({
+export const jobDetailDtoSchema = jobDtoSchema.extend({
+  stage: jobStageSchema.nullable(),
+  summary: z.string().nullish(),
+  error_log: z.string().nullish(),
+  steps: z.array(jobStepDtoSchema),
+  findings: z.array(findingDtoSchema),
+});
+
+export const jobsPageDtoSchema = z.object({
   items: z.array(jobDtoSchema),
   next_cursor: z.string().nullable(),
 });
 
-export const jobDetailDtoSchema = jobDtoSchema.extend({
-  summary: z.string().nullable(),
-  error_log: z.string().nullable(),
-  external_check_url: z.url().nullable(),
-  steps: z.array(jobStepDtoSchema),
-  findings: z.array(findingDtoSchema),
+export const findingContextDtoSchema = z.object({
+  path: z.string().min(1),
+  old_path: z.string().nullable(),
+  status: z.enum(["added", "modified", "removed", "renamed"]),
+  file_line_count: z.number().int().nonnegative(),
+  hunks: z.array(diffHunkDtoSchema),
 });
 
 export const fileLinesDtoSchema = z.object({
@@ -133,7 +120,9 @@ export const fileLinesDtoSchema = z.object({
 });
 
 export type JobDto = z.infer<typeof jobDtoSchema>;
-export type JobStepDto = z.infer<typeof jobStepDtoSchema>;
 export type JobDetailDto = z.infer<typeof jobDetailDtoSchema>;
+export type JobStepDto = z.infer<typeof jobStepDtoSchema>;
+export type JobStatusDto = z.infer<typeof jobStatusSchema>;
+export type JobStageDto = z.infer<typeof jobStageSchema>;
 export type FindingDto = z.infer<typeof findingDtoSchema>;
-export type DiffFileDto = z.infer<typeof diffFileDtoSchema>;
+export type FindingContextDto = z.infer<typeof findingContextDtoSchema>;

@@ -1,5 +1,5 @@
 import { type RunFilters } from "../domain/filters";
-import { type Finding } from "../domain/finding";
+import { type Finding, type FindingContext } from "../domain/finding";
 import { type Run, type RunDetails } from "../domain/run";
 
 export interface RunHistoryPage {
@@ -35,6 +35,15 @@ export interface RunsRepository {
     runId: string,
     signal?: AbortSignal,
   ) => Promise<RunDetailsResult>;
+  /**
+   * The diff around one finding. Rejects when the forge can no longer rebuild it (an old
+   * commit, a removed installation); the page then shows the finding without its code.
+   */
+  getFindingContext: (
+    runId: string,
+    findingId: string,
+    signal?: AbortSignal,
+  ) => Promise<FindingContext>;
   /** Unchanged lines around a hunk, used to unfold context. */
   getFileLines: (
     query: FileLinesQuery,

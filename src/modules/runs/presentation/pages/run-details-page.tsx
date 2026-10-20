@@ -132,7 +132,11 @@ export function RunDetailsPage({ runId }: { runId: string }) {
             aria-hidden
           />
           <div>
-            <p className="font-medium">The run failed</p>
+            <p className="font-medium">
+              {run.status === "skipped"
+                ? "The run was skipped"
+                : "The run failed"}
+            </p>
             <p className="text-content-muted">{run.failureReason}</p>
           </div>
         </div>
@@ -168,6 +172,7 @@ export function RunDetailsPage({ runId }: { runId: string }) {
           groups.map(([path, fileFindings]) => (
             <FileFindings
               key={path}
+              runId={runId}
               path={path}
               findings={fileFindings}
               onExpand={handleExpand}

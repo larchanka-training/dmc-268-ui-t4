@@ -6,44 +6,46 @@ import {
   type RunHistoryPage,
   type RunsRepository,
 } from "../application/ports";
-import { type RunFilters } from "../domain/filters";
+import { type RunFilters, type RunStatusFilter } from "../domain/filters";
 
 import {
+  type JobStatusDto,
   fileLinesDtoSchema,
+  findingContextDtoSchema,
   jobDetailDtoSchema,
-  jobPageDtoSchema,
+  jobsPageDtoSchema,
 } from "./dto";
-import { toRun, toRunDetails, toValidFindings } from "./mappers";
+import { toFinding, toFindingContext, toRun, toRunDetails } from "./mappers";
 
-/** The backend's page limit; one page covers every job still in flight. */
-const ACTIVE_JOBS_LIMIT = 100;
+const STATUS_PARAM: Record<RunStatusFilter, JobStatusDto | undefined> = {
+  all: undefined,
+  completed: "COMPLETED",
+  failed: "FAILED",
+};
+
+/**
+ * The API pages at most 100 jobs. The active list is not paginated in the console: more
+ * than a page of reviews in flight at once is not a case the panel is built for.
+ */
+const ACTIVE_LIMIT = 100;
+
+function jobPath(runId: string, ...rest: string[]): string {
+  return `/jobs/${[runId, ...rest].map(encodeURIComponent).join("/")}`;
+}
 
 /** Events after which the job looks different; `snapshot` only restates it. */
 const CHANGE_EVENTS = ["step", "status"] as const;
 
-const JOB_STATUS_OF_FILTER = {
-  completed: "COMPLETED",
-  failed: "FAILED",
-} as const;
-
-/** The filters carry calendar days; the backend wants instants with an offset. */
 function toSearchParams(filters: RunFilters, cursor: string | undefined) {
   return {
-    status:
-      filters.status === "all"
-        ? undefined
-        : JOB_STATUS_OF_FILTER[filters.status],
+    status: STATUS_PARAM[filters.status],
     repository: filters.repository,
     author: filters.author,
-    from: filters.from === undefined ? undefined : `${filters.from}T00:00:00Z`,
-    to: filters.to === undefined ? undefined : `${filters.to}T23:59:59.999Z`,
+    from: filters.from,
+    to: filters.to,
     q: filters.query === "" ? undefined : filters.query,
     cursor,
   };
-}
-
-function jobPath(runId: string): string {
-  return `/jobs/${encodeURIComponent(runId)}`;
 }
 
 /**
@@ -58,23 +60,23 @@ export function createHttpRunsRepository(
   return {
     async listActiveRuns(signal) {
       const dto = await http.get("/jobs", {
-        schema: jobPageDtoSchema,
-        searchParams: { status: "active", limit: ACTIVE_JOBS_LIMIT },
+        schema: jobsPageDtoSchema,
+        searchParams: { status: "active", limit: ACTIVE_LIMIT },
         signal,
       });
 
-      return dto.items.map((job) => toRun(job));
+      return dto.items.map((item) => toRun(item));
     },
 
     async listRunHistory({ filters, cursor }, signal): Promise<RunHistoryPage> {
       const dto = await http.get("/jobs", {
-        schema: jobPageDtoSchema,
+        schema: jobsPageDtoSchema,
         searchParams: toSearchParams(filters, cursor),
         signal,
       });
 
       return {
-        items: dto.items.map((job) => toRun(job)),
+        items: dto.items.map((item) => toRun(item)),
         nextCursor: dto.next_cursor,
       };
     },
@@ -87,12 +89,21 @@ export function createHttpRunsRepository(
 
       return {
         run: toRunDetails(dto),
-        findings: toValidFindings(dto.findings),
+        findings: dto.findings.map(toFinding),
       };
     },
 
+    async getFindingContext(runId, findingId, signal) {
+      const dto = await http.get(
+        jobPath(runId, "findings", findingId, "context"),
+        { schema: findingContextDtoSchema, signal },
+      );
+
+      return toFindingContext(dto);
+    },
+
     async getFileLines({ runId, path, from, to }: FileLinesQuery, signal) {
-      const dto = await http.get(`${jobPath(runId)}/file-lines`, {
+      const dto = await http.get(jobPath(runId, "file-lines"), {
         schema: fileLinesDtoSchema,
         searchParams: { path, from, to },
         signal,

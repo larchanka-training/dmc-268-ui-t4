@@ -6,12 +6,14 @@ import {
 import { useEffect } from "react";
 
 import {
+  getFindingContext,
   getRunDetails,
   listActiveRuns,
   listRunHistory,
   watchRun,
 } from "../application/use-cases";
 import { type RunFilters } from "../domain/filters";
+import { type Finding } from "../domain/finding";
 import { hasActiveRun } from "../domain/run";
 
 import { useRunsDependencies } from "./dependencies";
@@ -25,6 +27,8 @@ export const runsQueryKeys = {
   history: (filters: RunFilters) =>
     [...runsQueryKeys.all, "history", filters] as const,
   details: (runId: string) => [...runsQueryKeys.all, "details", runId] as const,
+  findingContext: (runId: string, findingId: string) =>
+    [...runsQueryKeys.details(runId), "context", findingId] as const,
 };
 
 /**
@@ -89,4 +93,20 @@ export function useRunLiveUpdates(runId: string, isActive: boolean) {
       void queryClient.invalidateQueries({ queryKey: runsQueryKeys.active() });
     });
   }, [dependencies, queryClient, runId, isActive]);
+}
+
+/**
+ * The code around one finding. The API rebuilds it from the forge, so an old review can
+ * answer 409 for good: no retries, and the card falls back to `path:line`.
+ */
+export function useFindingContext(runId: string, finding: Finding) {
+  const dependencies = useRunsDependencies();
+
+  return useQuery({
+    queryKey: runsQueryKeys.findingContext(runId, finding.id),
+    queryFn: ({ signal }) =>
+      getFindingContext(dependencies, runId, finding, signal),
+    retry: false,
+    staleTime: Infinity,
+  });
 }

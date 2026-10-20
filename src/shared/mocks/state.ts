@@ -73,68 +73,49 @@ const PULL_REQUEST = {
   repo_full_name: "acme/payments",
   number: 412,
   title: "Add retry logic for payment provider",
+  url: "https://github.com/acme/payments/pull/412",
   author: "octocat",
   head_ref: "feature/payment-retry",
   base_ref: "main",
   head_sha: "a1b2c3d4e5f6a7b8",
-  url: "https://github.com/acme/payments/pull/412",
 } as const;
 
-/** The fields of a GET /jobs item that every fixture below shares. */
-const JOB = {
+/** A pipeline step of the job detail, in the order the worker runs them. */
+function step(
+  name: string,
+  stage: string,
+  startedAt: string,
+  finishedAt: string | null,
+  status = finishedAt === null ? "RUNNING" : "OK",
+) {
+  return {
+    step: name,
+    status,
+    stage,
+    attempt: 0,
+    started_at: startedAt,
+    finished_at: finishedAt,
+    error_kind: status === "FAILED" ? "diff_too_large" : null,
+    metrics: {},
+  };
+}
+
+export const completedJob = {
+  id: "run_8f21",
+  pull_request: PULL_REQUEST,
+  status: "COMPLETED",
   trigger: "webhook",
+  created_at: "2026-09-15T09:12:03.000Z",
+  started_at: "2026-09-15T09:12:03.000Z",
+  finished_at: "2026-09-15T09:13:31.000Z",
+  finding_count: 5,
   error_kind: null,
   retry_count: 0,
   next_attempt_at: null,
 } as const;
 
-type StepName =
-  | "CLAIMED"
-  | "AUTH"
-  | "FETCH_DIFF"
-  | "BUILD_CONTEXT"
-  | "REDACT"
-  | "GATE"
-  | "LLM_CALL"
-  | "POSTPROCESS"
-  | "POST_FEEDBACK"
-  | "METER";
-
-/** A pipeline step in the wire format, timed in seconds from `start`. */
-export function jobStep(
-  start: string,
-  step: StepName,
-  fromSeconds: number,
-  toSeconds: number | null,
-  status: "RUNNING" | "OK" | "FAILED" | "SKIPPED" = "OK",
-  errorKind: string | null = null,
-) {
-  const at = (seconds: number) =>
-    new Date(Date.parse(start) + seconds * 1000).toISOString();
-
-  return {
-    step,
-    status: toSeconds === null ? "RUNNING" : status,
-    attempt: 1,
-    started_at: at(fromSeconds),
-    finished_at: toSeconds === null ? null : at(toSeconds),
-    error_kind: errorKind,
-  };
-}
-
-export const completedRun = {
-  ...JOB,
-  id: "run_8f21",
-  pull_request: PULL_REQUEST,
-  status: "COMPLETED",
-  created_at: "2026-09-15T09:12:01.000Z",
-  started_at: "2026-09-15T09:12:03.000Z",
-  finished_at: "2026-09-15T09:13:31.000Z",
-  finding_count: 5,
-} as const;
-
-export const failedRun = {
-  ...JOB,
+export const failedJob = {
+  ...completedJob,
   id: "run_7c02",
   pull_request: {
     ...PULL_REQUEST,
@@ -144,16 +125,15 @@ export const failedRun = {
     head_ref: "chore/bump-deps",
   },
   status: "FAILED",
-  created_at: "2026-09-14T17:41:09.000Z",
+  created_at: "2026-09-14T17:41:10.000Z",
   started_at: "2026-09-14T17:41:10.000Z",
   finished_at: "2026-09-14T17:41:52.000Z",
   finding_count: 0,
-  error_kind:
-    "The diff exceeded the context budget: 412 changed files, 61k lines.",
+  error_kind: "diff_too_large",
 } as const;
 
-export const olderRuns = Array.from({ length: 12 }, (_, index) => ({
-  ...JOB,
+export const olderJobs = Array.from({ length: 12 }, (_, index) => ({
+  ...completedJob,
   id: `run_old_${String(index)}`,
   pull_request: {
     ...PULL_REQUEST,
@@ -163,12 +143,8 @@ export const olderRuns = Array.from({ length: 12 }, (_, index) => ({
     author: index % 3 === 0 ? "hubot" : "octocat",
     head_ref: `refactor/settlement-${String(index)}`,
   },
-  status: "COMPLETED" as const,
   created_at: new Date(
     Date.parse("2026-09-13T12:00:00.000Z") - index * 3_600_000,
-  ).toISOString(),
-  started_at: new Date(
-    Date.parse("2026-09-13T12:00:01.000Z") - index * 3_600_000,
   ).toISOString(),
   finished_at: new Date(
     Date.parse("2026-09-13T12:01:02.000Z") - index * 3_600_000,
@@ -176,9 +152,12 @@ export const olderRuns = Array.from({ length: 12 }, (_, index) => ({
   finding_count: index % 4,
 }));
 
-/** The job the mock backend reviews live; see `active-job.ts` for its progress. */
-export const activeRun = {
-  ...JOB,
+const activeStartedAt = Date.now() - 42_000;
+const secondsIntoActive = (seconds: number) =>
+  new Date(activeStartedAt + seconds * 1000).toISOString();
+
+export const activeJob = {
+  ...completedJob,
   id: "run_9a44",
   pull_request: {
     ...PULL_REQUEST,
@@ -187,49 +166,113 @@ export const activeRun = {
     url: "https://github.com/acme/payments/pull/415",
     head_ref: "feature/provider-timeouts",
   },
+  status: "PROCESSING",
+  created_at: secondsIntoActive(0),
+  started_at: secondsIntoActive(0),
+  finished_at: null,
   finding_count: 0,
 } as const;
 
-const DETAIL = {
-  error_log: null,
-  external_check_url: null,
-} as const;
-
-export const completedRunDetails = {
-  ...completedRun,
-  ...DETAIL,
-  steps: [
-    jobStep(completedRun.started_at, "CLAIMED", 0, 1),
-    jobStep(completedRun.started_at, "AUTH", 1, 2),
-    jobStep(completedRun.started_at, "FETCH_DIFF", 2, 9),
-    jobStep(completedRun.started_at, "BUILD_CONTEXT", 9, 15),
-    jobStep(completedRun.started_at, "REDACT", 15, 16),
-    jobStep(completedRun.started_at, "GATE", 16, 17),
-    jobStep(completedRun.started_at, "LLM_CALL", 17, 71),
-    jobStep(completedRun.started_at, "POSTPROCESS", 71, 82),
-    jobStep(completedRun.started_at, "POST_FEEDBACK", 82, 87),
-    jobStep(completedRun.started_at, "METER", 87, 88),
-  ],
+export const completedJobDetail = {
+  ...completedJob,
+  stage: "publishing",
   summary:
     "Retries are added around the provider call. Two issues are worth a look: the retry loop keeps the database transaction open, and the backoff has no upper bound.",
-} as const;
-
-export const failedRunDetails = {
-  ...failedRun,
-  ...DETAIL,
+  error_log: null,
+  external_check_url: null,
   steps: [
-    jobStep(failedRun.started_at, "CLAIMED", 0, 1),
-    jobStep(failedRun.started_at, "AUTH", 1, 2),
-    jobStep(
-      failedRun.started_at,
+    step(
+      "CLAIMED",
+      "collecting_context",
+      "2026-09-15T09:12:03.000Z",
+      "2026-09-15T09:12:03.000Z",
+    ),
+    step(
       "FETCH_DIFF",
-      2,
-      42,
-      "FAILED",
-      "diff_too_large",
+      "collecting_context",
+      "2026-09-15T09:12:03.000Z",
+      "2026-09-15T09:12:11.000Z",
+    ),
+    step(
+      "BUILD_CONTEXT",
+      "collecting_context",
+      "2026-09-15T09:12:11.000Z",
+      "2026-09-15T09:12:19.000Z",
+    ),
+    step(
+      "LLM_CALL",
+      "reviewing",
+      "2026-09-15T09:12:19.000Z",
+      "2026-09-15T09:13:14.000Z",
+    ),
+    step(
+      "POSTPROCESS",
+      "validating",
+      "2026-09-15T09:13:14.000Z",
+      "2026-09-15T09:13:25.000Z",
+    ),
+    step(
+      "POST_FEEDBACK",
+      "publishing",
+      "2026-09-15T09:13:25.000Z",
+      "2026-09-15T09:13:31.000Z",
     ),
   ],
+} as const;
+
+export const failedJobDetail = {
+  ...failedJob,
+  stage: "collecting_context",
   summary: null,
+  error_log:
+    "The diff exceeded the context budget: 412 changed files, 61k lines.",
+  external_check_url: null,
+  steps: [
+    step(
+      "CLAIMED",
+      "collecting_context",
+      "2026-09-14T17:41:10.000Z",
+      "2026-09-14T17:41:10.000Z",
+    ),
+    step(
+      "FETCH_DIFF",
+      "collecting_context",
+      "2026-09-14T17:41:10.000Z",
+      "2026-09-14T17:41:52.000Z",
+      "FAILED",
+    ),
+  ],
+  findings: [],
+} as const;
+
+export const activeJobDetail = {
+  ...activeJob,
+  stage: "reviewing",
+  summary: null,
+  error_log: null,
+  external_check_url: null,
+  steps: [
+    step(
+      "CLAIMED",
+      "collecting_context",
+      secondsIntoActive(0),
+      secondsIntoActive(0),
+    ),
+    step(
+      "FETCH_DIFF",
+      "collecting_context",
+      secondsIntoActive(0),
+      secondsIntoActive(9),
+    ),
+    step(
+      "BUILD_CONTEXT",
+      "collecting_context",
+      secondsIntoActive(9),
+      secondsIntoActive(17),
+    ),
+    step("LLM_CALL", "reviewing", secondsIntoActive(17), null),
+  ],
+  findings: [],
 } as const;
 
 /** The file the findings point at, used both for the snippets and for unfolding context. */
@@ -242,12 +285,17 @@ export const PAYMENT_SERVICE_FILE = {
   ),
 };
 
-export const findings = [
+/**
+ * The published findings together with the code each one points at. The API sends the
+ * two separately (`GET /jobs/{id}` and `.../findings/{id}/context`), so the fixtures are
+ * split below.
+ */
+const FINDING_FIXTURES = [
   {
     id: "finding_1",
-    file_path: PAYMENT_SERVICE_FILE.path,
+    path: PAYMENT_SERVICE_FILE.path,
     line: 142,
-    side: "RIGHT",
+    side: "new",
     severity: "high",
     category: "correctness",
     message:
@@ -326,9 +374,9 @@ export const findings = [
   },
   {
     id: "finding_2",
-    file_path: PAYMENT_SERVICE_FILE.path,
+    path: PAYMENT_SERVICE_FILE.path,
     line: 158,
-    side: "RIGHT",
+    side: "new",
     severity: "medium",
     category: "performance",
     message:
@@ -393,9 +441,9 @@ export const findings = [
   },
   {
     id: "finding_3",
-    file_path: "src/webhooks_controller.rb",
+    path: "src/webhooks_controller.rb",
     line: 64,
-    side: "RIGHT",
+    side: "new",
     severity: "critical",
     category: "security",
     message:
@@ -454,9 +502,9 @@ export const findings = [
     // TypeScript, so the viewer is exercised with a second grammar, and a replacement
     // that pairs line for line in the side-by-side view.
     id: "finding_4",
-    file_path: "src/billing/invoice-total.ts",
+    path: "src/billing/invoice-total.ts",
     line: 24,
-    side: "RIGHT",
+    side: "new",
     severity: "low",
     category: "maintainability",
     message:
@@ -524,9 +572,9 @@ export const findings = [
     // A Mermaid diagram: we have no grammar for it, so the viewer must stay plain and
     // still render the finding correctly.
     id: "finding_5",
-    file_path: "diagrams/payment-retry.mmd",
+    path: "diagrams/payment-retry.mmd",
     line: 7,
-    side: "RIGHT",
+    side: "new",
     severity: "medium",
     category: "correctness",
     message:
@@ -573,11 +621,41 @@ export const findings = [
   },
 ] as const;
 
-/** A finding the backend would have dropped: its line is not part of the diff. */
-export const findingOutsideDiff = {
-  ...findings[0],
-  id: "finding_out_of_range",
-  line: 900,
+export const findings = FINDING_FIXTURES.map((fixture) => ({
+  id: fixture.id,
+  path: fixture.path,
+  line: fixture.line,
+  side: fixture.side,
+  severity: fixture.severity,
+  category: fixture.category,
+  message: fixture.message,
+  suggestion: fixture.suggestion,
+  published_at: fixture.published_at,
+  external_url: fixture.external_url,
+}));
+
+/** GET /jobs/{id}/findings/{finding_id}/context, keyed by finding. */
+export const findingContexts: Record<string, unknown> = Object.fromEntries(
+  FINDING_FIXTURES.map((fixture) => [
+    fixture.id,
+    { ...fixture.snippet, file_line_count: fixture.file_line_count },
+  ]),
+);
+
+/**
+ * A finding on a commit the forge no longer has: its context answers 409, and the page
+ * shows the comment with `path:line` instead of the code.
+ */
+export const findingWithoutContext = {
+  id: "finding_commit_gone",
+  path: "src/legacy/settlement.rb",
+  line: 12,
+  side: "new",
+  severity: "low",
+  category: "maintainability",
+  suggestion: null,
   message:
-    "This position does not exist in the diff and must never be rendered.",
+    "This comment was made on a commit that has since been force-pushed away, so its code can no longer be shown.",
+  published_at: "2026-09-15T09:13:31.000Z",
+  external_url: "https://github.com/acme/payments/pull/412#discussion_r6",
 } as const;

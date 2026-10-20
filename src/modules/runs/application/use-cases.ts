@@ -1,4 +1,5 @@
 import { expandRange } from "@/shared/diff/domain/context";
+import { isPositionInDiff } from "@/shared/diff/domain/position";
 import {
   type ContextGap,
   type ExpandDirection,
@@ -6,7 +7,11 @@ import {
 } from "@/shared/diff/domain/types";
 
 import { type RunFilters } from "../domain/filters";
-import { compareBySeverity } from "../domain/finding";
+import {
+  type Finding,
+  type FindingContext,
+  compareBySeverity,
+} from "../domain/finding";
 
 import {
   type FileLinesQuery,
@@ -55,6 +60,24 @@ export function watchRun(
   onChange: () => void,
 ): () => void {
   return runs.watchRun(runId, onChange);
+}
+
+/**
+ * The code a finding points at, or null when it cannot be drawn: the snippet does not
+ * contain the commented line, so anchoring the comment to it would mislead (see "Diff
+ * Position Mapping" in the review pipeline). The caller falls back to `path:line`.
+ */
+export async function getFindingContext(
+  { runs }: RunsDependencies,
+  runId: string,
+  finding: Finding,
+  signal?: AbortSignal,
+): Promise<FindingContext | null> {
+  const context = await runs.getFindingContext(runId, finding.id, signal);
+
+  return isPositionInDiff(context.snippet.hunks, finding.position)
+    ? context
+    : null;
 }
 
 export interface ExpandContextParams {

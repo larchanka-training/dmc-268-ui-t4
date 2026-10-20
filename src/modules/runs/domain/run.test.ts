@@ -11,8 +11,7 @@ import {
 const run: Run = {
   id: "run_1",
   pullRequest: {
-    owner: "acme",
-    repo: "payments",
+    repository: "acme/payments",
     number: 412,
     title: "Add retry logic for payment provider",
     url: "https://github.com/acme/payments/pull/412",
@@ -28,14 +27,18 @@ const run: Run = {
 };
 
 describe("isActiveStatus", () => {
-  it("treats pipeline stages as active", () => {
+  it("treats pipeline stages and waiting as active", () => {
     expect(isActiveStatus("reviewing")).toBe(true);
     expect(isActiveStatus("queued")).toBe(true);
+    expect(isActiveStatus("processing")).toBe(true);
+    expect(isActiveStatus("retrying")).toBe(true);
   });
 
   it("treats terminal statuses as inactive", () => {
     expect(isActiveStatus("completed")).toBe(false);
     expect(isActiveStatus("failed")).toBe(false);
+    expect(isActiveStatus("superseded")).toBe(false);
+    expect(isActiveStatus("skipped")).toBe(false);
   });
 });
 
@@ -69,6 +72,7 @@ describe("stageDuration", () => {
         name: "reviewing",
         startedAt: "2026-09-15T10:00:10.000Z",
         finishedAt: null,
+        failed: false,
       },
       new Date("2026-09-15T10:00:25.000Z"),
     );

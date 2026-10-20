@@ -1,4 +1,4 @@
-import { activeRun, jobStep } from "./state";
+import { activeJob } from "./state";
 
 /** The pipeline the mock job goes through: step, start and end in seconds. */
 const SCRIPT = [
@@ -43,6 +43,25 @@ export interface MockJobEvent {
   };
 }
 
+/** A pipeline step of the job detail, shaped like `state.ts`'s own `step()` helper. */
+function jobStep(
+  step: string,
+  stage: string,
+  startedAt: string,
+  finishedAt: string | null,
+) {
+  return {
+    step,
+    status: finishedAt === null ? "RUNNING" : "OK",
+    stage,
+    attempt: 0,
+    started_at: startedAt,
+    finished_at: finishedAt,
+    error_kind: null,
+    metrics: {},
+  };
+}
+
 /**
  * The job the mock backend reviews in front of the user. It starts when the mocks load,
  * walks through the pipeline in about forty seconds and then completes, so the details
@@ -60,8 +79,15 @@ export function createMockActiveJob(now: () => number = Date.now) {
     const seconds = elapsed();
 
     return SCRIPT.filter(([, from]) => from <= seconds).map(
-      ([step, from, to]) =>
-        jobStep(startedAt, step, from, to <= seconds ? to : null),
+      ([stepName, from, to]) =>
+        jobStep(
+          stepName,
+          STAGE_OF_STEP[stepName],
+          new Date(Date.parse(startedAt) + from * 1000).toISOString(),
+          to <= seconds
+            ? new Date(Date.parse(startedAt) + to * 1000).toISOString()
+            : null,
+        ),
     );
   }
 
@@ -69,7 +95,7 @@ export function createMockActiveJob(now: () => number = Date.now) {
     const done = isDone();
 
     return {
-      ...activeRun,
+      ...activeJob,
       status: done ? "COMPLETED" : "PROCESSING",
       created_at: createdAt,
       started_at: startedAt,
@@ -82,15 +108,15 @@ export function createMockActiveJob(now: () => number = Date.now) {
   /** Every event so far: a start and an end per step, then the final status. */
   function events(): MockJobEvent[] {
     const seconds = elapsed();
-    const raw = SCRIPT.flatMap(([step, from, to]) => [
-      { step, at: from, stepStatus: "RUNNING" },
-      { step, at: to, stepStatus: "OK" },
+    const raw = SCRIPT.flatMap(([stepName, from, to]) => [
+      { step: stepName, at: from, stepStatus: "RUNNING" },
+      { step: stepName, at: to, stepStatus: "OK" },
     ]).filter((event) => event.at <= seconds);
 
     const list: MockJobEvent[] = raw.map((event, index) => ({
       kind: "step",
       data: {
-        job_id: activeRun.id,
+        job_id: activeJob.id,
         seq: index + 1,
         at: new Date(Date.parse(startedAt) + event.at * 1000).toISOString(),
         status: "PROCESSING",
@@ -106,7 +132,7 @@ export function createMockActiveJob(now: () => number = Date.now) {
       list.push({
         kind: "status",
         data: {
-          job_id: activeRun.id,
+          job_id: activeJob.id,
           seq: list.length + 1,
           at: job().finished_at ?? startedAt,
           status: "COMPLETED",
@@ -123,17 +149,22 @@ export function createMockActiveJob(now: () => number = Date.now) {
   }
 
   return {
-    id: activeRun.id,
+    id: activeJob.id,
     isDone,
     job,
-    detail: () => ({
-      ...job(),
-      summary: null,
-      error_log: null,
-      external_check_url: null,
-      steps: steps(),
-      findings: [],
-    }),
+    detail: () => {
+      const currentSteps = steps();
+
+      return {
+        ...job(),
+        stage: currentSteps.at(-1)?.stage ?? null,
+        summary: null,
+        error_log: null,
+        external_check_url: null,
+        steps: currentSteps,
+        findings: [],
+      };
+    },
     events,
   };
 }

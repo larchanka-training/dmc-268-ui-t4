@@ -10,6 +10,7 @@ import { type Finding } from "../../domain/finding";
 import { FindingCard } from "./finding-card";
 
 export interface FileFindingsProps {
+  readonly runId: string;
   readonly path: string;
   readonly findings: readonly Finding[];
   readonly onExpand: (
@@ -23,7 +24,12 @@ export interface FileFindingsProps {
  * Everything the agent said about one file. The path is stated once, at the top, instead
  * of repeating on every comment the way it used to.
  */
-export function FileFindings({ path, findings, onExpand }: FileFindingsProps) {
+export function FileFindings({
+  runId,
+  path,
+  findings,
+  onExpand,
+}: FileFindingsProps) {
   const first = findings[0];
 
   if (first === undefined) {
@@ -53,7 +59,12 @@ export function FileFindings({ path, findings, onExpand }: FileFindingsProps) {
 
       <div className="flex flex-col divide-y divide-border">
         {findings.map((finding) => (
-          <FindingCard key={finding.id} finding={finding} onExpand={onExpand} />
+          <FindingCard
+            key={finding.id}
+            runId={runId}
+            finding={finding}
+            onExpand={onExpand}
+          />
         ))}
       </div>
     </section>
