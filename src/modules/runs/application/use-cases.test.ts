@@ -50,6 +50,7 @@ function dependencies(): { runs: RunsRepository } {
       getFindingContext: vi.fn(() =>
         Promise.resolve({ snippet: SNIPPET, fileLineCount: 180 }),
       ),
+      watchRun: () => () => undefined,
     },
   };
 }
