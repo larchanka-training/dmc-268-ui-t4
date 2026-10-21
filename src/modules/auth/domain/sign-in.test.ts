@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { type Session } from "./session";
-import {
-  SIGN_IN_SUCCESS_PATH,
-  parseSignInResult,
-  signInDestination,
-} from "./sign-in";
+import { parseSignInResult, signInDestination } from "./sign-in";
 
 function session(currentOrganizationId: string | null): Session {
   return {
@@ -52,27 +48,19 @@ describe("signInDestination", () => {
     );
   });
 
-  it("lands on the success page when there was no return path", () => {
-    expect(signInDestination(session("org1"), undefined)).toBe(
-      SIGN_IN_SUCCESS_PATH,
-    );
+  it("lands on the Overview when there was no return path", () => {
+    expect(signInDestination(session("org1"), undefined)).toBe("/");
   });
 
-  it("lands on the success page when the return path is unsafe", () => {
-    expect(signInDestination(session("org1"), "//evil.example")).toBe(
-      SIGN_IN_SUCCESS_PATH,
-    );
+  it("lands on the Overview when the return path is unsafe", () => {
+    expect(signInDestination(session("org1"), "//evil.example")).toBe("/");
   });
 
-  it("lands on the success page when the user has no organisation", () => {
-    expect(signInDestination(session(null), "/runs")).toBe(
-      SIGN_IN_SUCCESS_PATH,
-    );
+  it("lands on the Overview, which offers the install, when the user has no organisation", () => {
+    expect(signInDestination(session(null), "/runs")).toBe("/");
   });
 
-  it("lands on the success page when the current organisation is unknown", () => {
-    expect(signInDestination(session("missing"), "/runs")).toBe(
-      SIGN_IN_SUCCESS_PATH,
-    );
+  it("lands on the Overview when the current organisation is unknown", () => {
+    expect(signInDestination(session("missing"), "/runs")).toBe("/");
   });
 });

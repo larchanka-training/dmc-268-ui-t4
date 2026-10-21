@@ -14,8 +14,8 @@ import { z } from "zod";
 import {
   AuthCallbackPage,
   LoginPage,
+  CONSOLE_HOME_PATH,
   type Session,
-  SignInSuccessPage,
   can,
   completeSignIn,
   sessionQueryKey,
@@ -123,19 +123,17 @@ const authCallbackRoute = createRoute({
   component: AuthCallbackPage,
 });
 
+/**
+ * The former sign-in success page. Sign-in now lands on the Overview, which also covers
+ * the "app not installed" state; the path stays only so old links and bookmarks still work.
+ * The console guard sends a signed-out visitor on to /login.
+ */
 const authSuccessRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/auth/success",
-  beforeLoad: async ({ context }) => {
-    const session = await context.queryClient.query(
-      sessionQueryOptions(context.dependencies.auth),
-    );
-
-    if (session === null) {
-      throw redirect({ to: "/login", search: {} });
-    }
+  beforeLoad: () => {
+    throw redirect({ href: CONSOLE_HOME_PATH, replace: true });
   },
-  component: SignInSuccessPage,
 });
 
 /**

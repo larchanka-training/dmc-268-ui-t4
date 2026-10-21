@@ -186,7 +186,7 @@ is in [Spec 001](./docs/specs/001-github-auth.md).
 - **Sign-in.** `/login` links to `GET /api/auth/github?return_to=…`. The backend redirects
   back to `/auth/callback?result=…&return_to=…`; the callback loads `/me` and opens
   `return_to`. A direct sign-in, or a user whose organisations lack the app, lands on
-  `/auth/success`. `return_to` must be a local path (`sanitizeReturnTo`), so sign-in
+  the Overview (`/`), which offers to install the app. `return_to` must be a local path (`sanitizeReturnTo`), so sign-in
   cannot become an open redirect.
 - **CSRF.** Every request carries `X-Requested-With: fetch`; the backend rejects
   state-changing requests without it or from a foreign `Origin`.
