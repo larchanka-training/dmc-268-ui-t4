@@ -127,19 +127,19 @@ describe("routes", () => {
     expect(where(router).pathname).toBe("/billing");
   });
 
-  it("lands a direct sign-in on the success page", async () => {
+  it("lands a direct sign-in on the Overview", async () => {
     const { router } = await navigate("/auth/callback?result=success", SESSION);
 
-    expect(where(router).pathname).toBe("/auth/success");
+    expect(where(router).pathname).toBe("/");
   });
 
-  it("lands a user without organisations on the success page", async () => {
+  it("lands a user without organisations on the Overview", async () => {
     const { router } = await navigate(
       "/auth/callback?result=success&return_to=%2Fbilling",
       NO_ORGANIZATION,
     );
 
-    expect(where(router).pathname).toBe("/auth/success");
+    expect(where(router).pathname).toBe("/");
   });
 
   it("ignores a return path that leaves the console", async () => {
@@ -148,7 +148,7 @@ describe("routes", () => {
       SESSION,
     );
 
-    expect(where(router).pathname).toBe("/auth/success");
+    expect(where(router).pathname).toBe("/");
   });
 
   it("never leaves the callback in the history", async () => {
@@ -223,7 +223,13 @@ describe("routes", () => {
     ).toBe(true);
   });
 
-  it("keeps a signed-out visitor away from the success page", async () => {
+  it("sends an old success-page link to the Overview", async () => {
+    const { router } = await navigate("/auth/success", SESSION);
+
+    expect(where(router).pathname).toBe("/");
+  });
+
+  it("still asks a signed-out visitor on an old success-page link to sign in", async () => {
     const { router } = await navigate("/auth/success", null);
 
     expect(where(router).pathname).toBe("/login");

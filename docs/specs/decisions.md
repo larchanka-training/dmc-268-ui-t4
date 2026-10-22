@@ -716,3 +716,29 @@ it remains the seam a highlighter would use, and the comment there says so.
 
 Effect on the bundle: back to `main` plus this task's own components — 622 kB before the
 task, 634 kB with highlighting, 629 kB now, and 8 chunks instead of 51.
+
+## After Task 3 — where sign-in lands
+
+### 4.1 Signing in lands on the Overview (replaces 1.10)
+
+A user without an organisation, and anyone who signed in directly, used to land on
+`/auth/success`: a card outside the console that said the app was not installed and only
+told them to ask an organisation owner. Task 2 gave the Overview the same "not installed"
+state, with an **Install the review app** button, so the card had become a dead end next
+to a better page.
+
+- **✔** Land on the Overview (`/`) whenever there is no safe `return_to`, and always when
+  the session has no organisation. Remove the success page; `/auth/success` stays as a
+  redirect to `/` so old links and bookmarks keep working.
+- Keep the success page and add the install button to it.
+- Land on `/` only for users without an organisation, keep the page for a direct sign-in.
+
+Why: one screen for one state. The Overview already shows who is signed in (the account
+menu), the organisation and the install action; the card duplicated the first and lacked
+the last. A user without an organisation is not sent to the `return_to` page either: every
+console page but the Overview would be empty for them without saying why.
+
+Files: `src/modules/auth/domain/sign-in.ts` (`CONSOLE_HOME_PATH`, `signInDestination`),
+`src/app/routes/router.tsx` (the `/auth/success` redirect), the removed
+`sign-in-success-page.tsx` and `sign-out-button.tsx` (it was used only there; the account
+menu signs out on its own), and the tests in `sign-in.test.ts` and `router.test.ts`.

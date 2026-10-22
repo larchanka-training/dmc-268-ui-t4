@@ -16,7 +16,7 @@ and the client never sees, stores or sends a token itself.
 In scope:
 
 - "Continue with GitHub" on `/login`, the OAuth round trip, and the return to the SPA.
-- A sign-in success page at `/auth/success`.
+- A sign-in success page at `/auth/success` (later replaced by the Overview, decision 4.1).
 - Sign-out.
 - Detecting an expired or revoked session anywhere in the app.
 - Error states for a failed or cancelled sign-in.
@@ -85,7 +85,8 @@ sequenceDiagram
 
 The redirect back to the SPA carries only the outcome, never a credential.
 
-Where the user ends up after a successful sign-in:
+Where the user ends up after a successful sign-in (superseded by decision 4.1: both
+`/auth/success` cases below now land on the Overview, `/`):
 
 1. If the session has no organisation (`current_organization_id` is `null`) →
    `/auth/success`, which shows the "not installed yet" state. The console has nothing to
