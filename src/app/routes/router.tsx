@@ -197,39 +197,13 @@ const repositoriesRoute = createRoute({
   component: RepositoriesPage,
 });
 
-/**
- * The branch whose rules are previewed. The router parses search values as JSON, so an
- * all-digit SHA prefix arrives as a number and is turned back into text.
- */
-const repositorySettingsSearchSchema = z.object({
-  ref: z
-    .union([z.string(), z.number().transform(String)])
-    .optional()
-    .catch(undefined),
-});
-
 const repositorySettingsRoute = createRoute({
   getParentRoute: () => consoleRoute,
   path: "/repositories/$repositoryId",
-  validateSearch: repositorySettingsSearchSchema,
   component: function RepositorySettingsRoute() {
     const { repositoryId } = repositorySettingsRoute.useParams();
-    const { ref } = repositorySettingsRoute.useSearch();
-    const navigate = useNavigate();
 
-    return (
-      <RepositorySettingsPage
-        repositoryId={repositoryId}
-        branch={ref}
-        onBranchChange={(next) => {
-          void navigate({
-            to: "/repositories/$repositoryId",
-            params: { repositoryId },
-            search: { ref: next },
-          });
-        }}
-      />
-    );
+    return <RepositorySettingsPage repositoryId={repositoryId} />;
   },
 });
 

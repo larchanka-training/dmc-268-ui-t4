@@ -8,18 +8,11 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { RepositoryRulesCard } from "../components/repository-rules-card";
 import { useRepository } from "../queries";
 
-/**
- * One connected repository: for now the status and preview of its review rules. The
- * branch being previewed lives in the URL (`?ref=`), so a link shows the same view.
- */
+/** One connected repository: for now the status and preview of its review rules. */
 export function RepositorySettingsPage({
   repositoryId,
-  branch,
-  onBranchChange,
 }: {
   repositoryId: string;
-  branch: string | undefined;
-  onBranchChange: (ref: string | undefined) => void;
 }) {
   const { repository, isPending, isError, isMissing, refetch } =
     useRepository(repositoryId);
@@ -60,11 +53,7 @@ export function RepositorySettingsPage({
             </span>
           </header>
 
-          <RepositoryRulesCard
-            repository={repository}
-            branch={branch}
-            onBranchChange={onBranchChange}
-          />
+          <RepositoryRulesCard repository={repository} />
         </>
       ) : isError ? (
         <div className="flex items-center gap-3 rounded-md border border-border bg-surface px-4 py-3 text-sm">
