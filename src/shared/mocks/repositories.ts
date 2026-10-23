@@ -4,11 +4,7 @@ import {
   DISCONNECTED_REPOSITORIES_KEY,
   type MockStorage,
 } from "./session";
-import {
-  REPOSITORIES,
-  REPOSITORIES_TO_CONNECT,
-  REPOSITORY_RULES,
-} from "./state";
+import { REPOSITORIES, REPOSITORIES_TO_CONNECT } from "./state";
 
 const PAGE_SIZE = 10;
 
@@ -109,40 +105,6 @@ export function createMockRepositories({
       );
 
       storage.setItem(CONNECTED_REPOSITORIES_KEY, String(count));
-    },
-
-    /**
-     * GET /repositories/{id}/rules: the fixture for the repository's name, on `ref` or
-     * the default branch; null when the repository is not connected.
-     */
-    rules(id: string, ref: string | null) {
-      const repository = all().find((item) => item.id === id);
-
-      if (repository === undefined) {
-        return null;
-      }
-
-      const branch = ref ?? repository.default_branch;
-      const fixture = REPOSITORY_RULES[repository.name];
-      const path = ".review/rules.md";
-      const encodedBranch = encodeURIComponent(branch);
-
-      return fixture === undefined
-        ? {
-            path,
-            ref: branch,
-            status: "absent",
-            file_url: `${repository.html_url}/new/${encodedBranch}?filename=${encodeURIComponent(path)}`,
-            rules: [],
-            dropped_suspicious: 0,
-            dropped_over_limit: 0,
-          }
-        : {
-            path,
-            ref: branch,
-            file_url: `${repository.html_url}/blob/${encodedBranch}/${path}`,
-            ...fixture,
-          };
     },
 
     /** Removes a connected repository; false when there is no such repository. */

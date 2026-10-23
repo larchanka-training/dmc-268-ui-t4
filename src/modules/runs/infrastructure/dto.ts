@@ -126,3 +126,19 @@ export type JobStatusDto = z.infer<typeof jobStatusSchema>;
 export type JobStageDto = z.infer<typeof jobStageSchema>;
 export type FindingDto = z.infer<typeof findingDtoSchema>;
 export type FindingContextDto = z.infer<typeof findingContextDtoSchema>;
+
+/** GET /jobs/{id}/rules: `.review/rules.md` at the job's head SHA. */
+export const rulesDtoSchema = z.object({
+  path: z.string(),
+  ref: z.string(),
+  // Any string: a status newer than this client becomes "unknown" in the mapper.
+  status: z.string(),
+  file_url: z.string().nullable(),
+  rules: z.array(
+    z.object({ id: z.string(), section: z.string(), text: z.string() }),
+  ),
+  dropped_suspicious: z.number().int().nonnegative(),
+  dropped_over_limit: z.number().int().nonnegative(),
+});
+
+export type RulesDto = z.infer<typeof rulesDtoSchema>;

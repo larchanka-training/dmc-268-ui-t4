@@ -2,7 +2,7 @@ import { AlertTriangle, CheckCircle2, FileX, ShieldOff } from "lucide-react";
 
 import { Badge } from "@/shared/ui/badge";
 
-import { type RulesStatus } from "../../domain/repository-rules";
+import { type RulesStatus } from "../../domain/run-rules";
 
 const LABELS: Record<RulesStatus, string> = {
   absent: "No rules.md",
@@ -13,7 +13,7 @@ const LABELS: Record<RulesStatus, string> = {
   unknown: "Unknown status",
 };
 
-/** Whether the branch carries `.review/rules.md`, and whether a review would use it. */
+/** Whether the pull request head carries `.review/rules.md`, and whether a review would use it. */
 export function RulesStatusBadge({ status }: { status: RulesStatus }) {
   if (status === "applied") {
     return (

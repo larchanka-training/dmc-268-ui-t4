@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  type RepositoryRules,
+  type ReviewRules,
   groupBySection,
   toRulesStatus,
   usesDefaultRules,
-} from "./repository-rules";
+} from "./run-rules";
 
-const APPLIED: RepositoryRules = {
+const APPLIED: ReviewRules = {
   path: ".review/rules.md",
-  ref: "main",
+  ref: "a1b2c3d4e5f6a7b8",
   status: "applied",
-  fileUrl: "https://github.com/acme/api/blob/main/.review/rules.md",
+  fileUrl: "https://github.com/acme/api/blob/a1b2c3d4e5f6a7b8/.review/rules.md",
   rules: [
     { id: "R1", section: "Security", text: "Bind SQL parameters." },
     { id: "R2", section: "Style", text: "Docstrings on public functions." },

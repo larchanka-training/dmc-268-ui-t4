@@ -25,7 +25,6 @@ import {
 import { BillingPage, PricingPage } from "@/modules/billing";
 import {
   RepositoriesPage,
-  RepositorySettingsPage,
   announceRepositoriesConnected,
   repositoriesQueryKeys,
 } from "@/modules/repositories";
@@ -197,16 +196,6 @@ const repositoriesRoute = createRoute({
   component: RepositoriesPage,
 });
 
-const repositorySettingsRoute = createRoute({
-  getParentRoute: () => consoleRoute,
-  path: "/repositories/$repositoryId",
-  component: function RepositorySettingsRoute() {
-    const { repositoryId } = repositorySettingsRoute.useParams();
-
-    return <RepositorySettingsPage repositoryId={repositoryId} />;
-  },
-});
-
 /** Filters live in the URL; anything unexpected falls back instead of reaching the UI. */
 const runsSearchSchema = z.object({
   status: z.enum(["all", "completed", "failed"]).default("all").catch("all"),
@@ -301,7 +290,6 @@ const routeTree = rootRoute.addChildren([
   consoleRoute.addChildren([
     indexRoute,
     repositoriesRoute,
-    repositorySettingsRoute,
     runsRoute,
     runDetailsRoute,
     billingRoute,

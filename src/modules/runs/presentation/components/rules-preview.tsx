@@ -1,17 +1,17 @@
-import { AlertTriangle, ExternalLink, GitBranch } from "lucide-react";
+import { AlertTriangle, ExternalLink, GitCommitHorizontal } from "lucide-react";
 
 import {
-  type RepositoryRules,
+  type ReviewRules,
   type RulesStatus,
   groupBySection,
-} from "../../domain/repository-rules";
+} from "../../domain/run-rules";
 
 import { RulesStatusBadge } from "./rules-status-badge";
 
 /** Why reviews fall back to the default rules, per status that is not "applied". */
 const FALLBACK_REASONS: Record<Exclude<RulesStatus, "applied">, string> = {
   absent:
-    "Using the default rules. Create .review/rules.md to add checks of your own.",
+    "Using the default rules. Create .review/rules.md on the pull request's branch to add checks of your own.",
   "rejected:too_large":
     "The file is over 64 KB, so reviews ignore it and use the default rules.",
   "rejected:encoding":
@@ -29,8 +29,8 @@ function countRules(count: number): string {
   return `${String(count)} ${count === 1 ? "rule" : "rules"}`;
 }
 
-/** Read-only view of `.review/rules.md` on one branch, as a review would read it. */
-export function RulesPreview({ rules }: { rules: RepositoryRules }) {
+/** Read-only view of `.review/rules.md` at the pull request head, as a review would read it. */
+export function RulesPreview({ rules }: { rules: ReviewRules }) {
   const sections = groupBySection(rules.rules);
   const fallback =
     rules.status === "applied"
@@ -52,8 +52,10 @@ export function RulesPreview({ rules }: { rules: RepositoryRules }) {
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <RulesStatusBadge status={rules.status} />
         <span className="inline-flex items-center gap-1 text-content-muted">
-          <GitBranch className="size-3" aria-hidden />
-          <span className="font-mono text-xs">{rules.ref}</span>
+          <GitCommitHorizontal className="size-3" aria-hidden />
+          <span className="font-mono text-xs" title={rules.ref}>
+            {rules.ref.slice(0, 7)}
+          </span>
         </span>
         {rules.fileUrl === null ? null : (
           <a

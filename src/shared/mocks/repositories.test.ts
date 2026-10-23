@@ -151,44 +151,4 @@ describe("createMockRepositories", () => {
         .total_count,
     ).toBe(11);
   });
-
-  it("serves the rules fixture of a repository on the requested branch", () => {
-    const repositories = createMockRepositories({
-      scenario: scenario("owner"),
-      storage: memoryStorage(),
-    });
-
-    const rules = repositories.rules("repo_1", "feature/x");
-
-    expect(rules).toMatchObject({
-      ref: "feature/x",
-      status: "applied",
-      file_url: "https://github.com/acme/api/blob/feature%2Fx/.review/rules.md",
-    });
-    expect(rules?.rules.length).toBeGreaterThan(0);
-  });
-
-  it("answers absent with a create link for a repository without rules", () => {
-    const repositories = createMockRepositories({
-      scenario: scenario("owner"),
-      storage: memoryStorage(),
-    });
-
-    expect(repositories.rules("repo_7", null)).toMatchObject({
-      ref: "main",
-      status: "absent",
-      file_url:
-        "https://github.com/acme/infra/new/main?filename=.review%2Frules.md",
-      rules: [],
-    });
-  });
-
-  it("has no rules for a repository that is not connected", () => {
-    const repositories = createMockRepositories({
-      scenario: scenario("owner"),
-      storage: memoryStorage(),
-    });
-
-    expect(repositories.rules("repo_unknown", null)).toBeNull();
-  });
 });

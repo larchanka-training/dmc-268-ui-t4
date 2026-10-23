@@ -19,5 +19,4 @@ export {
 } from "./presentation/connected-banner-store";
 export { RepositoriesDependenciesProvider } from "./presentation/dependencies";
 export { RepositoriesPage } from "./presentation/pages/repositories-page";
-export { RepositorySettingsPage } from "./presentation/pages/repository-settings-page";
 export { repositoriesQueryKeys, useRepositories } from "./presentation/queries";

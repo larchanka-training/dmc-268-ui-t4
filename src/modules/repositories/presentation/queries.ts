@@ -1,15 +1,12 @@
 import {
   useInfiniteQuery,
   useMutation,
-  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useEffect } from "react";
 
 import {
   type DisconnectStart,
   listRepositories,
-  loadRepositoryRules,
   startConnect,
   startDisconnect,
 } from "../application/use-cases";
@@ -19,8 +16,6 @@ import { useRepositoriesDependencies } from "./dependencies";
 export const repositoriesQueryKeys = {
   all: ["repositories"] as const,
   list: () => [...repositoriesQueryKeys.all, "list"] as const,
-  rules: (repositoryId: string, ref: string | undefined) =>
-    [...repositoriesQueryKeys.all, "rules", repositoryId, ref ?? null] as const,
 };
 
 /**
@@ -44,48 +39,6 @@ export function useRepositories() {
       items: data.pages.flatMap((page) => page.items),
       totalCount: data.pages[0]?.totalCount ?? 0,
     }),
-  });
-}
-
-/**
- * One connected repository, looked up in the shared list. There is no per-repository
- * endpoint, so pages are loaded until it turns up or the list ends; `isMissing` then
- * says it is not connected (any more).
- */
-export function useRepository(repositoryId: string) {
-  const repositories = useRepositories();
-  const repository =
-    repositories.data?.items.find((item) => item.id === repositoryId) ?? null;
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = repositories;
-  const shouldLoadMore =
-    repository === null && hasNextPage && !isFetchingNextPage;
-
-  useEffect(() => {
-    if (shouldLoadMore) {
-      void fetchNextPage();
-    }
-  }, [shouldLoadMore, fetchNextPage]);
-
-  return {
-    repository,
-    isPending: repositories.isPending || (repository === null && hasNextPage),
-    isError: repositories.isError,
-    isMissing: repositories.isSuccess && repository === null && !hasNextPage,
-    refetch: repositories.refetch,
-  };
-}
-
-/**
- * `.review/rules.md` on a branch, read live from GitHub by the backend. Kept only as
- * long as the default staleness: a push can change it at any time.
- */
-export function useRepositoryRules(repositoryId: string, ref?: string) {
-  const dependencies = useRepositoriesDependencies();
-
-  return useQuery({
-    queryKey: repositoriesQueryKeys.rules(repositoryId, ref),
-    queryFn: ({ signal }) =>
-      loadRepositoryRules(dependencies, { repositoryId, ref }, signal),
   });
 }
 

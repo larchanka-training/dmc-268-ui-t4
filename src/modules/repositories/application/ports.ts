@@ -1,5 +1,4 @@
 import { type Repository } from "../domain/repository";
-import { type RepositoryRules } from "../domain/repository-rules";
 
 export interface RepositoryPage {
   readonly items: readonly Repository[];
@@ -24,12 +23,4 @@ export interface ConnectedReposApi {
     repositoryId: string,
     signal?: AbortSignal,
   ) => Promise<string>;
-  /**
-   * `.review/rules.md` on `ref` (the default branch when omitted), parsed the way a
-   * review reads it. Rejects with a not-found error when the repository is not connected.
-   */
-  getRules: (
-    params: { repositoryId: string; ref?: string },
-    signal?: AbortSignal,
-  ) => Promise<RepositoryRules>;
 }

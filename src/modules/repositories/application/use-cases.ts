@@ -1,7 +1,6 @@
 import { errorKind } from "@/shared/lib/errors";
 
 import { isSafeConnectUrl } from "../domain/connect-url";
-import { type RepositoryRules } from "../domain/repository-rules";
 
 import { type ConnectedReposApi, type RepositoryPage } from "./ports";
 
@@ -29,14 +28,6 @@ export function listRepositories(
   signal?: AbortSignal,
 ): Promise<RepositoryPage> {
   return repositories.listRepositories(params, signal);
-}
-
-export function loadRepositoryRules(
-  { repositories }: RepositoriesDependencies,
-  params: { repositoryId: string; ref?: string },
-  signal?: AbortSignal,
-): Promise<RepositoryRules> {
-  return repositories.getRules(params, signal);
 }
 
 /**

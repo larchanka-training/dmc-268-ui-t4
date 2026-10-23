@@ -47,6 +47,7 @@ function dependencies(): { runs: RunsRepository } {
       listRunHistory: notUsed,
       getRunDetails: notUsed,
       getFileLines: notUsed,
+      getRules: notUsed,
       getFindingContext: vi.fn(() =>
         Promise.resolve({ snippet: SNIPPET, fileLineCount: 180 }),
       ),

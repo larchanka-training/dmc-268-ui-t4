@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import {
   getFindingContext,
   getRunDetails,
+  getRunRules,
   listActiveRuns,
   listRunHistory,
   watchRun,
@@ -35,6 +36,7 @@ export const runsQueryKeys = {
   details: (runId: string) => [...runsQueryKeys.all, "details", runId] as const,
   findingContext: (runId: string, findingId: string) =>
     [...runsQueryKeys.details(runId), "context", findingId] as const,
+  rules: (runId: string) => [...runsQueryKeys.details(runId), "rules"] as const,
 };
 
 /**
@@ -117,6 +119,20 @@ export function useFindingContext(runId: string, finding: Finding) {
     queryFn: ({ signal }) =>
       getFindingContext(dependencies, runId, finding, signal),
     retry: false,
+    staleTime: Infinity,
+  });
+}
+
+/**
+ * `.review/rules.md` at the run's head commit. A commit does not change, so the answer
+ * is kept for the visit; Retry on the card reads it again.
+ */
+export function useRunRules(runId: string) {
+  const dependencies = useRunsDependencies();
+
+  return useQuery({
+    queryKey: runsQueryKeys.rules(runId),
+    queryFn: ({ signal }) => getRunRules(dependencies, runId, signal),
     staleTime: Infinity,
   });
 }

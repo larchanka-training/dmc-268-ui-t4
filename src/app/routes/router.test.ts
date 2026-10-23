@@ -44,6 +44,7 @@ const runs: RunsRepository = {
   getRunDetails: notUsed,
   getFindingContext: notUsed,
   getFileLines: notUsed,
+  getRules: notUsed,
   watchRun: notUsed,
 };
 
@@ -51,7 +52,6 @@ const repositories: ConnectedReposApi = {
   listRepositories: notUsed,
   getConnectUrl: notUsed,
   getDisconnectUrl: notUsed,
-  getRules: notUsed,
 };
 
 /** The routes run against fakes and an in-memory history: no DOM, no network. */

@@ -3,12 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AppError } from "@/shared/lib/errors";
 
 import { type ConnectedReposApi, type RepositoryPage } from "./ports";
-import {
-  listRepositories,
-  loadRepositoryRules,
-  startConnect,
-  startDisconnect,
-} from "./use-cases";
+import { listRepositories, startConnect, startDisconnect } from "./use-cases";
 
 const EMPTY_PAGE: RepositoryPage = {
   items: [],
@@ -26,17 +21,6 @@ function dependencies(overrides: Partial<ConnectedReposApi> = {}) {
       Promise.resolve(
         "https://github.com/organizations/acme/settings/installations/42",
       ),
-    ),
-    getRules: vi.fn(() =>
-      Promise.resolve({
-        path: ".review/rules.md",
-        ref: "main",
-        status: "absent" as const,
-        fileUrl: null,
-        rules: [],
-        droppedSuspicious: 0,
-        droppedOverLimit: 0,
-      }),
     ),
     ...overrides,
   };
@@ -135,18 +119,5 @@ describe("startDisconnect", () => {
       kind: "failed",
       reason: "unavailable",
     });
-  });
-});
-
-describe("loadRepositoryRules", () => {
-  it("asks for the rules of one repository on a ref", async () => {
-    const deps = dependencies();
-
-    await loadRepositoryRules(deps, { repositoryId: "repo_1", ref: "dev" });
-
-    expect(deps.repositories.getRules).toHaveBeenCalledWith(
-      { repositoryId: "repo_1", ref: "dev" },
-      undefined,
-    );
   });
 });
