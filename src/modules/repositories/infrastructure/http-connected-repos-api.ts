@@ -5,6 +5,10 @@ import { httpsUrlOrNull } from "@/shared/lib/url";
 
 import { type ConnectedReposApi } from "../application/ports";
 import { type Repository } from "../domain/repository";
+import {
+  type RepositoryRules,
+  toRulesStatus,
+} from "../domain/repository-rules";
 
 const repositoryDtoSchema = z.object({
   id: z.string().min(1),
@@ -28,6 +32,33 @@ const repositoryPageDtoSchema = z.object({
 
 /** Both connect-url and disconnect-url answer with the GitHub page to send the user to. */
 const gitHubUrlDtoSchema = z.object({ url: z.string().min(1) });
+
+const repositoryRulesDtoSchema = z.object({
+  path: z.string(),
+  ref: z.string(),
+  // Any string: a status newer than this client becomes "unknown" in the mapper.
+  status: z.string(),
+  file_url: z.string(),
+  rules: z.array(
+    z.object({ id: z.string(), section: z.string(), text: z.string() }),
+  ),
+  dropped_suspicious: z.number().int().nonnegative(),
+  dropped_over_limit: z.number().int().nonnegative(),
+});
+
+function toRepositoryRules(
+  dto: z.infer<typeof repositoryRulesDtoSchema>,
+): RepositoryRules {
+  return {
+    path: dto.path,
+    ref: dto.ref,
+    status: toRulesStatus(dto.status),
+    fileUrl: httpsUrlOrNull(dto.file_url),
+    rules: dto.rules,
+    droppedSuspicious: dto.dropped_suspicious,
+    droppedOverLimit: dto.dropped_over_limit,
+  };
+}
 
 function toRepository(dto: z.infer<typeof repositoryDtoSchema>): Repository {
   return {
@@ -77,6 +108,15 @@ export function createHttpConnectedReposApi(
       );
 
       return dto.url;
+    },
+
+    async getRules({ repositoryId, ref }, signal) {
+      const dto = await http.get(
+        `/repositories/${encodeURIComponent(repositoryId)}/rules`,
+        { schema: repositoryRulesDtoSchema, searchParams: { ref }, signal },
+      );
+
+      return toRepositoryRules(dto);
     },
   };
 }

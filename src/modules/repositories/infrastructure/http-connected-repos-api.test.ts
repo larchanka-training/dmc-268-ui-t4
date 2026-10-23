@@ -138,4 +138,54 @@ describe("createHttpConnectedReposApi", () => {
       expect.anything(),
     );
   });
+
+  it("maps the rules of a repository and passes the ref", async () => {
+    const http = fakeHttp(() => ({
+      path: ".review/rules.md",
+      ref: "feature/x",
+      status: "applied",
+      file_url: "https://github.com/acme/api/blob/feature%2Fx/.review/rules.md",
+      rules: [{ id: "R1", section: "Security", text: "Bind SQL parameters." }],
+      dropped_suspicious: 1,
+      dropped_over_limit: 0,
+    }));
+
+    await expect(
+      createHttpConnectedReposApi(http).getRules({
+        repositoryId: "repo/1",
+        ref: "feature/x",
+      }),
+    ).resolves.toEqual({
+      path: ".review/rules.md",
+      ref: "feature/x",
+      status: "applied",
+      fileUrl: "https://github.com/acme/api/blob/feature%2Fx/.review/rules.md",
+      rules: [{ id: "R1", section: "Security", text: "Bind SQL parameters." }],
+      droppedSuspicious: 1,
+      droppedOverLimit: 0,
+    });
+    expect(http.calls.get).toHaveBeenCalledWith(
+      "/repositories/repo%2F1/rules",
+      expect.objectContaining({ searchParams: { ref: "feature/x" } }),
+    );
+  });
+
+  it("keeps an unknown rules status and drops a non-https file link", async () => {
+    const http = fakeHttp(() => ({
+      path: ".review/rules.md",
+      ref: "main",
+      status: "rejected:something_new",
+      file_url: "javascript:alert(1)",
+      rules: [],
+      dropped_suspicious: 0,
+      dropped_over_limit: 0,
+    }));
+
+    const rules = await createHttpConnectedReposApi(http).getRules({
+      repositoryId: "repo_1",
+    });
+
+    expect(rules.status).toBe("unknown");
+    expect(rules.fileUrl).toBeNull();
+  });
 });

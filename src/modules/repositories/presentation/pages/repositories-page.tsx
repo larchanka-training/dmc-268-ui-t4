@@ -137,6 +137,14 @@ function RepositoryRow({ repository }: { repository: Repository }) {
 
       <div className="flex items-center gap-2">
         <Button asChild variant="outline" size="sm">
+          <Link
+            to="/repositories/$repositoryId"
+            params={{ repositoryId: repository.id }}
+          >
+            Rules
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
           <Link to="/runs" search={{ repository: repository.fullName }}>
             Runs
           </Link>

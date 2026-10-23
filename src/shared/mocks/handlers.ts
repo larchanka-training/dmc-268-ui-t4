@@ -111,6 +111,30 @@ export const handlers = [
     },
   ),
 
+  // In reality the backend reads .review/rules.md from GitHub on every request.
+  http.get(
+    `${BASE}/repositories/:repositoryId/rules`,
+    ({ params, request }) => {
+      if (!session.authorize()) {
+        return unauthorized();
+      }
+
+      const repositoryId = params["repositoryId"];
+      const ref = new URL(request.url).searchParams.get("ref");
+
+      if (ref !== null && (ref === "" || /\s/.test(ref))) {
+        return HttpResponse.json({ error: "bad_ref" }, { status: 400 });
+      }
+
+      const rules =
+        typeof repositoryId === "string"
+          ? repositories.rules(repositoryId, ref)
+          : null;
+
+      return rules === null ? notFound() : HttpResponse.json(rules);
+    },
+  ),
+
   http.get(`${BASE}/jobs`, ({ request }) => {
     if (!session.authorize()) {
       return unauthorized();

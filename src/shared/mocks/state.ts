@@ -59,6 +59,90 @@ export const REPOSITORIES = [
   last_run_at: typeof lastRunAt === "string" ? lastRunAt : null,
 }));
 
+/**
+ * `.review/rules.md` per repository name, in the wire format of
+ * GET /repositories/{id}/rules minus `ref` and `file_url`, which depend on the request.
+ * Repositories not listed here have no rules file.
+ */
+export const REPOSITORY_RULES: Readonly<
+  Record<
+    string,
+    {
+      readonly status: string;
+      readonly rules: readonly {
+        readonly id: string;
+        readonly section: string;
+        readonly text: string;
+      }[];
+      readonly dropped_suspicious: number;
+      readonly dropped_over_limit: number;
+    }
+  >
+> = {
+  api: {
+    status: "applied",
+    rules: [
+      {
+        id: "R1",
+        section: "Security",
+        text: "SQL is built only through bound parameters or the query builder, never by string formatting.",
+      },
+      {
+        id: "R2",
+        section: "Security",
+        text: "Every handler under `api/` checks the tenant id before reading a row.",
+      },
+      {
+        id: "R3",
+        section: "Performance",
+        text: "Flag any query inside a loop over request items.",
+      },
+      {
+        id: "R4",
+        section: "Style",
+        text: "Public functions in `domain/` have a docstring.",
+      },
+    ],
+    dropped_suspicious: 0,
+    dropped_over_limit: 0,
+  },
+  payments: {
+    status: "applied",
+    rules: [
+      {
+        id: "R1",
+        section: "Payments",
+        text: "Amounts are integers in minor units; flag any float arithmetic on money.",
+      },
+      {
+        id: "R2",
+        section: "Payments",
+        text: "Every call to the payment provider has an idempotency key.",
+      },
+    ],
+    dropped_suspicious: 1,
+    dropped_over_limit: 0,
+  },
+  web: {
+    status: "applied",
+    rules: [],
+    dropped_suspicious: 0,
+    dropped_over_limit: 0,
+  },
+  docs: {
+    status: "rejected:too_large",
+    rules: [],
+    dropped_suspicious: 0,
+    dropped_over_limit: 0,
+  },
+  mobile: {
+    status: "ignored:forbidden",
+    rules: [],
+    dropped_suspicious: 0,
+    dropped_over_limit: 0,
+  },
+};
+
 /** What "connecting" adds in mock mode, one per click, in this order. */
 export const REPOSITORIES_TO_CONNECT = [
   "search",
