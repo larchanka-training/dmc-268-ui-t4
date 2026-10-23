@@ -38,9 +38,10 @@ export function RepositoryRulesCard({
       <div className="flex flex-col gap-1">
         <h2 className="text-base font-semibold">Review rules</h2>
         <p className="text-sm text-content-muted">
-          Each review reads .review/rules.md from the pull request&apos;s own
-          branch, so a pull request that edits the file is reviewed by its own
-          version. Pick a branch to see what a review on it would apply.
+          How the reviewer parses .review/rules.md on a branch. Reviews are
+          meant to read the file from the pull request&apos;s own branch, so a
+          pull request that edits it gets its own version; until the review
+          pipeline loads the file, reviews use the default rules.
         </p>
       </div>
 
