@@ -1,6 +1,7 @@
 import { type RunFilters } from "../domain/filters";
 import { type Finding, type FindingContext } from "../domain/finding";
 import { type Run, type RunDetails } from "../domain/run";
+import { type ReviewRules } from "../domain/run-rules";
 
 export interface RunHistoryPage {
   readonly items: readonly Run[];
@@ -49,6 +50,8 @@ export interface RunsRepository {
     query: FileLinesQuery,
     signal?: AbortSignal,
   ) => Promise<readonly string[]>;
+  /** `.review/rules.md` at the run's pull request head, read live from the forge. */
+  getRules: (runId: string, signal?: AbortSignal) => Promise<ReviewRules>;
   /**
    * Calls `onChange` whenever the run moves on (a stage starts or ends, the status
    * changes) until it finishes. Returns the function that stops watching.
