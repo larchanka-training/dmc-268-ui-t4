@@ -14,8 +14,15 @@ import {
   findingContextDtoSchema,
   jobDetailDtoSchema,
   jobsPageDtoSchema,
+  rulesDtoSchema,
 } from "./dto";
-import { toFinding, toFindingContext, toRun, toRunDetails } from "./mappers";
+import {
+  toFinding,
+  toFindingContext,
+  toReviewRules,
+  toRun,
+  toRunDetails,
+} from "./mappers";
 
 const STATUS_PARAM: Record<RunStatusFilter, JobStatusDto | undefined> = {
   all: undefined,
@@ -114,6 +121,15 @@ export function createHttpRunsRepository(
       });
 
       return dto.lines;
+    },
+
+    async getRules(runId, signal) {
+      const dto = await http.get(jobPath(runId, "rules"), {
+        schema: rulesDtoSchema,
+        signal,
+      });
+
+      return toReviewRules(dto);
     },
 
     watchRun(runId, onChange) {

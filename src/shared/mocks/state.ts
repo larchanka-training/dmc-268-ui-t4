@@ -152,6 +152,85 @@ export const olderJobs = Array.from({ length: 12 }, (_, index) => ({
   finding_count: index % 4,
 }));
 
+/**
+ * `.review/rules.md` at each job's head SHA, in the wire format of GET /jobs/{id}/rules
+ * minus `path`, `ref` and `file_url`, which `rules.ts` derives from the job. Jobs not
+ * listed here have no rules file.
+ */
+export const JOB_RULES: Readonly<
+  Record<
+    string,
+    {
+      readonly status: string;
+      readonly rules: readonly {
+        readonly id: string;
+        readonly section: string;
+        readonly text: string;
+      }[];
+      readonly dropped_suspicious: number;
+      readonly dropped_over_limit: number;
+    }
+  >
+> = {
+  run_8f21: {
+    status: "applied",
+    rules: [
+      {
+        id: "R1",
+        section: "Payments",
+        text: "Amounts are integers in minor units; flag any float arithmetic on money.",
+      },
+      {
+        id: "R2",
+        section: "Payments",
+        text: "Every call to the payment provider has an idempotency key.",
+      },
+      {
+        id: "R3",
+        section: "Security",
+        text: "SQL is built only through bound parameters or the query builder, never by string formatting.",
+      },
+      {
+        id: "R4",
+        section: "Performance",
+        text: "Flag any query inside a loop over request items.",
+      },
+    ],
+    dropped_suspicious: 1,
+    dropped_over_limit: 0,
+  },
+  run_9a44: {
+    status: "applied",
+    rules: [
+      {
+        id: "R1",
+        section: "Payments",
+        text: "Every call to the payment provider has a timeout.",
+      },
+    ],
+    dropped_suspicious: 0,
+    dropped_over_limit: 0,
+  },
+  run_old_0: {
+    status: "rejected:too_large",
+    rules: [],
+    dropped_suspicious: 0,
+    dropped_over_limit: 0,
+  },
+  run_old_1: {
+    status: "ignored:forbidden",
+    rules: [],
+    dropped_suspicious: 0,
+    dropped_over_limit: 0,
+  },
+  run_old_2: {
+    status: "applied",
+    rules: [],
+    dropped_suspicious: 0,
+    dropped_over_limit: 0,
+  },
+};
+
 /** The timestamps are placeholders: `active-job.ts` replaces them when the mocks start. */
 export const activeJob = {
   ...completedJob,

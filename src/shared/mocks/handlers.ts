@@ -2,6 +2,7 @@ import { HttpResponse, http, sse } from "msw";
 
 import { type MockJobEvent, createMockActiveJob } from "./active-job";
 import { createMockRepositories } from "./repositories";
+import { mockJobRules } from "./rules";
 import { currentScenario } from "./scenario";
 import { browserStorage, createMockSession } from "./session";
 import {
@@ -242,6 +243,20 @@ export const handlers = [
       }, EVENTS_POLL_MS);
     },
   ),
+
+  // In reality the backend reads .review/rules.md from GitHub at the job's head SHA.
+  http.get(`${BASE}/jobs/:jobId/rules`, ({ params }) => {
+    if (!session.authorize()) {
+      return unauthorized();
+    }
+
+    const all = activeJob === null ? history : [activeJob.job(), ...history];
+    const job = all.find((candidate) => candidate.id === params["jobId"]);
+
+    return job === undefined
+      ? notFound()
+      : HttpResponse.json(mockJobRules(job));
+  }),
 
   // Rebuilt from the forge in reality; a finding on a commit that is gone answers 409.
   http.get(`${BASE}/jobs/:jobId/findings/:findingId/context`, ({ params }) => {

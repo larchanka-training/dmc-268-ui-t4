@@ -14,6 +14,7 @@ import { type Finding, groupByFile } from "../../domain/finding";
 import { isActiveStatus, repositoryName, runDuration } from "../../domain/run";
 import { DiffViewModeToggle } from "../components/diff-view-mode-toggle";
 import { FileFindings } from "../components/file-findings";
+import { RunRulesCard } from "../components/run-rules-card";
 import { RunStatusBadge } from "../components/run-status-badge";
 import { RunTimeline } from "../components/run-timeline";
 import { SeveritySummary } from "../components/severity-summary";
@@ -155,6 +156,8 @@ export function RunDetailsPage({ runId }: { runId: string }) {
           <RunTimeline run={run} />
         </div>
       </section>
+
+      <RunRulesCard runId={runId} />
 
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

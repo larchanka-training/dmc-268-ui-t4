@@ -293,6 +293,50 @@ describe("createHttpRunsRepository", () => {
     });
   });
 
+  it("reads the rules at the job's head, dropping a link that is not https", async () => {
+    const http = fakeHttp(() => ({
+      path: ".review/rules.md",
+      ref: "a1b2c3d",
+      status: "rejected:something_new",
+      file_url: "javascript:alert(1)",
+      rules: [{ id: "R1", section: "Security", text: "Bind parameters." }],
+      dropped_suspicious: 1,
+      dropped_over_limit: 0,
+    }));
+
+    const rules = await createHttpRunsRepository(http, "/api").getRules(
+      "job/1",
+    );
+
+    expect(http.calls.get.mock.calls[0]?.[0]).toBe("/jobs/job%2F1/rules");
+    expect(rules).toEqual({
+      path: ".review/rules.md",
+      ref: "a1b2c3d",
+      status: "unknown",
+      fileUrl: null,
+      rules: [{ id: "R1", section: "Security", text: "Bind parameters." }],
+      droppedSuspicious: 1,
+      droppedOverLimit: 0,
+    });
+  });
+
+  it("keeps a missing link of absent rules as null", async () => {
+    const http = fakeHttp(() => ({
+      path: ".review/rules.md",
+      ref: "a1b2c3d",
+      status: "absent",
+      file_url: null,
+      rules: [],
+      dropped_suspicious: 0,
+      dropped_over_limit: 0,
+    }));
+
+    const rules = await createHttpRunsRepository(http, "/api").getRules("j");
+
+    expect(rules.status).toBe("absent");
+    expect(rules.fileUrl).toBeNull();
+  });
+
   it("watches a run until its stream ends", () => {
     vi.stubGlobal("EventSource", FakeEventSource);
     const onChange = vi.fn();

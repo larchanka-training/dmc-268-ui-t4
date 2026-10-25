@@ -12,6 +12,7 @@ import {
   type FindingContext,
   compareBySeverity,
 } from "../domain/finding";
+import { type ReviewRules } from "../domain/run-rules";
 
 import {
   type FileLinesQuery,
@@ -51,6 +52,15 @@ export async function getRunDetails(
     run: result.run,
     findings: [...result.findings].sort(compareBySeverity),
   };
+}
+
+/** `.review/rules.md` at the run's pull request head, as the review would read it. */
+export function getRunRules(
+  { runs }: RunsDependencies,
+  runId: string,
+  signal?: AbortSignal,
+): Promise<ReviewRules> {
+  return runs.getRules(runId, signal);
 }
 
 /** Live progress of one run; the returned function stops it. */

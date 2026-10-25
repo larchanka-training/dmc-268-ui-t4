@@ -1,4 +1,5 @@
 import { type DiffFile, type DiffHunk } from "@/shared/diff/domain/types";
+import { httpsUrlOrNull } from "@/shared/lib/url";
 
 import { type Finding, type FindingContext } from "../domain/finding";
 import {
@@ -8,6 +9,7 @@ import {
   type RunStage,
   type RunStatus,
 } from "../domain/run";
+import { type ReviewRules, toRulesStatus } from "../domain/run-rules";
 
 import {
   type FindingContextDto,
@@ -17,6 +19,7 @@ import {
   type JobStageDto,
   type JobStatusDto,
   type JobStepDto,
+  type RulesDto,
 } from "./dto";
 
 function toDiffHunk(dto: FindingContextDto["hunks"][number]): DiffHunk {
@@ -169,4 +172,16 @@ export function toFinding(dto: FindingDto): Finding {
 
 export function toFindingContext(dto: FindingContextDto): FindingContext {
   return { snippet: toDiffFile(dto), fileLineCount: dto.file_line_count };
+}
+
+export function toReviewRules(dto: RulesDto): ReviewRules {
+  return {
+    path: dto.path,
+    ref: dto.ref,
+    status: toRulesStatus(dto.status),
+    fileUrl: dto.file_url === null ? null : httpsUrlOrNull(dto.file_url),
+    rules: dto.rules,
+    droppedSuspicious: dto.dropped_suspicious,
+    droppedOverLimit: dto.dropped_over_limit,
+  };
 }
