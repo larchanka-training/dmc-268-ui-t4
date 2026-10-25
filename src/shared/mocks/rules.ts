@@ -33,7 +33,7 @@ export function mockJobRules(job: MockJob) {
     return {
       ...base,
       status: "absent",
-      file_url: `https://github.com/${repo}/new/${encodeURIComponent(branch)}?filename=${encodeURIComponent(RULES_PATH)}`,
+      file_url: `https://github.com/${repo}/new/${branch.split("/").map(encodeURIComponent).join("/")}?filename=${encodeURIComponent(RULES_PATH)}`,
       rules: [],
     };
   }

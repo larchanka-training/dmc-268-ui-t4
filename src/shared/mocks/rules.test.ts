@@ -21,7 +21,7 @@ describe("mockJobRules", () => {
     expect(rules.status).toBe("absent");
     expect(rules.rules).toEqual([]);
     expect(rules.file_url).toBe(
-      "https://github.com/acme/payments/new/chore%2Fbump-deps?filename=.review%2Frules.md",
+      "https://github.com/acme/payments/new/chore/bump-deps?filename=.review%2Frules.md",
     );
   });
 });
