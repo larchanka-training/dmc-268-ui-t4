@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => {
       // in production. With the mocks on, MSW answers before the request reaches the proxy.
       proxy: apiProxyTarget
         ? {
-            // The backend's routes carry no /api prefix (/me, /auth/github, ...),
-            // so strip it here as the reverse proxy does in production.
+            // The backend serves its routes under /v1 with no /api prefix (/v1/me, ...),
+            // so strip /api here as the reverse proxy does in production.
             "/api": {
               target: apiProxyTarget,
               changeOrigin: true,

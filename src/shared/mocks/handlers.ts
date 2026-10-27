@@ -18,7 +18,7 @@ import {
   sessionFor,
 } from "./state";
 
-const BASE = "/api";
+const BASE = "/api/v1";
 
 const history = [completedJob, failedJob, ...olderJobs];
 const PAGE_SIZE = 8;

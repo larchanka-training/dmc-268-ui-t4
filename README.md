@@ -48,9 +48,10 @@ Set `VITE_ENABLE_MOCKS=false` and `API_PROXY_TARGET` (the backend origin, e.g.
 session cookie is same-site, as in production. The backend's `Origin` check must accept the
 dev origin (`http://localhost:5173`).
 
-The proxy **strips the `/api` prefix**: the backend serves `/me`, `/auth/github` and
-`/auth/logout` with no prefix, and in production the reverse proxy strips it the same way.
-So `VITE_API_BASE_URL=/api` stays correct on both sides.
+The proxy **strips the `/api` prefix**: the backend serves `/v1/me`, `/v1/auth/github` and
+`/v1/auth/logout` with no `/api` in front, and in production the reverse proxy strips it the
+same way. So `VITE_API_BASE_URL=/api/v1` stays correct on both sides. The API answers on
+`/v1` since dmc-268-api-t4#43; deploy this build only after that API release.
 
 ## Git hooks
 
