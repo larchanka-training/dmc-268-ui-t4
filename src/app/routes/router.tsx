@@ -28,7 +28,12 @@ import {
   announceRepositoriesConnected,
   repositoriesQueryKeys,
 } from "@/modules/repositories";
-import { type RunFilters, RunDetailsPage, RunsPage } from "@/modules/runs";
+import {
+  type FindingFilters,
+  type RunFilters,
+  RunDetailsPage,
+  RunsPage,
+} from "@/modules/runs";
 
 import { type AppDependencies } from "../composition/dependencies";
 import { ConsoleLayout } from "../layouts/console-layout";
@@ -244,13 +249,63 @@ const runsRoute = createRoute({
   },
 });
 
+const findingSeveritySchema = z.enum(["critical", "high", "medium", "low"]);
+
+/**
+ * Quick filters over the findings, in the URL so a filtered review can be shared.
+ * Severities travel as a readable list (`severity=critical,high`). The router writes the
+ * validated value back to the URL, so the list stays a string here and is split below.
+ */
+const runDetailsSearchSchema = z.object({
+  file: z.string().optional(),
+  severity: z.string().optional().catch(undefined),
+  q: z.string().optional(),
+});
+
+function parseSeverities(value: string | undefined) {
+  return (value ?? "").split(",").flatMap((part) => {
+    const parsed = findingSeveritySchema.safeParse(part.trim());
+
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 const runDetailsRoute = createRoute({
   getParentRoute: () => consoleRoute,
   path: "/runs/$runId",
+  validateSearch: runDetailsSearchSchema,
   component: function RunDetailsRoute() {
     const { runId } = runDetailsRoute.useParams();
+    const search = runDetailsRoute.useSearch();
+    const navigate = useNavigate();
 
-    return <RunDetailsPage runId={runId} />;
+    const filters: FindingFilters = {
+      path: search.file,
+      severities: parseSeverities(search.severity),
+      query: search.q,
+    };
+
+    return (
+      <RunDetailsPage
+        runId={runId}
+        filters={filters}
+        onFiltersChange={(next) => {
+          void navigate({
+            to: "/runs/$runId",
+            params: { runId },
+            search: {
+              file: next.path,
+              severity:
+                next.severities.length === 0
+                  ? undefined
+                  : next.severities.join(","),
+              q: next.query,
+            },
+            replace: true,
+          });
+        }}
+      />
+    );
   },
 });
 
