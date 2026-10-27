@@ -1,4 +1,4 @@
-/** A repository the review app can access through the organisation's installation. */
+/** A repository the review app can access through one of the user's installations. */
 export interface Repository {
   readonly id: string;
   readonly owner: string;
@@ -16,6 +16,12 @@ export interface Repository {
   readonly connectedAt: string | null;
   /** When the agent last reviewed a pull request here; null before the first review. */
   readonly lastRunAt: string | null;
+  /**
+   * The account (an organisation or the user's own) whose installation this repository
+   * came through: the id of one of the session's organisations. Null from a backend that
+   * predates listing every installation.
+   */
+  readonly organizationId: string | null;
 }
 
 /** How many repositories the sidebar lists before "View all". */
@@ -44,6 +50,37 @@ export function sidebarSlice(
   const items = sortByFullName(repositories).slice(0, limit);
 
   return { items, hasMore: totalCount > items.length };
+}
+
+export interface RepositoryGroup {
+  readonly organizationId: string | null;
+  readonly repositories: readonly Repository[];
+}
+
+/**
+ * Splits a list by account, keeping the list's order inside each group and ordering the
+ * groups by where each account first appears. The API sorts by "owner/name", so an
+ * account's repositories already sit together.
+ */
+export function groupByOrganization(
+  repositories: readonly Repository[],
+): RepositoryGroup[] {
+  const groups = new Map<string | null, Repository[]>();
+
+  for (const repository of repositories) {
+    const group = groups.get(repository.organizationId);
+
+    if (group === undefined) {
+      groups.set(repository.organizationId, [repository]);
+    } else {
+      group.push(repository);
+    }
+  }
+
+  return [...groups].map(([organizationId, items]) => ({
+    organizationId,
+    repositories: items,
+  }));
 }
 
 /** The repositories with the most recent reviews; never-reviewed ones are left out. */

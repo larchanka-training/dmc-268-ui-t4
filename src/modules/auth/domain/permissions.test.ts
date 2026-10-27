@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { can } from "./permissions";
+import { can, canManageRepositoriesOf } from "./permissions";
 import { type Session } from "./session";
 
 function session(overrides: {
@@ -46,34 +46,17 @@ describe("can", () => {
     expect(can(session({ role: "owner" }), "billing:manage")).toBe(true);
   });
 
-  it("lets only organisation owners connect repositories", () => {
+  it("lets anyone signed in connect repositories", () => {
+    // GitHub asks for the account on its install page; a member can pick their own.
     expect(can(session({ role: "owner" }), "repositories:connect")).toBe(true);
-    expect(can(session({ role: "member" }), "repositories:connect")).toBe(
-      false,
-    );
-    // Platform staff follow their role in the organisation, like on GitHub.
+    expect(can(session({ role: "member" }), "repositories:connect")).toBe(true);
     expect(
       can(
-        session({ role: "member", isPlatformAdmin: true }),
+        { ...session({}), organizations: [], currentOrganizationId: null },
         "repositories:connect",
       ),
-    ).toBe(false);
-  });
-
-  it("lets only organisation owners disconnect repositories", () => {
-    expect(can(session({ role: "owner" }), "repositories:disconnect")).toBe(
-      true,
-    );
-    expect(can(session({ role: "member" }), "repositories:disconnect")).toBe(
-      false,
-    );
-    expect(
-      can(
-        session({ role: "member", isPlatformAdmin: true }),
-        "repositories:disconnect",
-      ),
-    ).toBe(false);
-    expect(can(null, "repositories:disconnect")).toBe(false);
+    ).toBe(true);
+    expect(can(null, "repositories:connect")).toBe(false);
   });
 
   it("opens the admin area only to platform admins", () => {
@@ -88,5 +71,36 @@ describe("can", () => {
     };
 
     expect(can(orphan, "runs:view")).toBe(false);
+  });
+});
+
+describe("canManageRepositoriesOf", () => {
+  it("follows the role in that account, not in the current one", () => {
+    const member: Session = {
+      ...session({ role: "member" }),
+      organizations: [
+        ...session({ role: "member" }).organizations,
+        {
+          id: "acct_octocat",
+          login: "octocat",
+          name: "Octo Cat",
+          avatarUrl: null,
+          role: "owner",
+        },
+      ],
+    };
+
+    expect(canManageRepositoriesOf(member, "org1")).toBe(false);
+    expect(canManageRepositoriesOf(member, "acct_octocat")).toBe(true);
+  });
+
+  it("denies an unknown account, a missing one and a missing session", () => {
+    expect(canManageRepositoriesOf(session({ role: "owner" }), "other")).toBe(
+      false,
+    );
+    expect(canManageRepositoriesOf(session({ role: "owner" }), null)).toBe(
+      false,
+    );
+    expect(canManageRepositoriesOf(null, "org1")).toBe(false);
   });
 });

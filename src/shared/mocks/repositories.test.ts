@@ -29,7 +29,7 @@ function scenario(name: string) {
 }
 
 describe("createMockRepositories", () => {
-  it("serves eleven repositories in pages of ten, sorted by full name", () => {
+  it("serves the organisation's and the personal repositories in pages of ten, sorted by full name", () => {
     const repositories = createMockRepositories({
       scenario: scenario("owner"),
       storage: memoryStorage(),
@@ -38,10 +38,10 @@ describe("createMockRepositories", () => {
     const first = repositories.page(0);
     const second = repositories.page(10);
 
-    expect(first.total_count).toBe(11);
+    expect(first.total_count).toBe(13);
     expect(first.items).toHaveLength(10);
     expect(first.next_cursor).toBe("10");
-    expect(second.items).toHaveLength(1);
+    expect(second.items).toHaveLength(3);
     expect(second.next_cursor).toBeNull();
 
     const fullNames = [...first.items, ...second.items].map(
@@ -74,7 +74,7 @@ describe("createMockRepositories", () => {
     expect(
       createMockRepositories({ scenario: scenario("owner"), storage }).page(0)
         .total_count,
-    ).toBe(12);
+    ).toBe(14);
   });
 
   it("forgets connected repositories when the scenario is reset", () => {
@@ -89,7 +89,7 @@ describe("createMockRepositories", () => {
     expect(
       createMockRepositories({ scenario: scenario("owner"), storage }).page(0)
         .total_count,
-    ).toBe(11);
+    ).toBe(13);
   });
 
   it("disconnects the chosen repository, and remembers it across reloads", () => {
@@ -111,7 +111,7 @@ describe("createMockRepositories", () => {
       storage,
     }).page(0);
 
-    expect(afterReload.total_count).toBe(10);
+    expect(afterReload.total_count).toBe(12);
     expect(afterReload.items.map((item) => item.id)).not.toContain(target.id);
   });
 
@@ -122,7 +122,7 @@ describe("createMockRepositories", () => {
     });
 
     expect(repositories.disconnect("repo_unknown")).toBe(false);
-    expect(repositories.page(0).total_count).toBe(11);
+    expect(repositories.page(0).total_count).toBe(13);
   });
 
   it("can disconnect a repository connected through the mock", () => {
@@ -134,7 +134,7 @@ describe("createMockRepositories", () => {
 
     repositories.connectOne();
     expect(repositories.disconnect("repo_connected_1")).toBe(true);
-    expect(repositories.page(0).total_count).toBe(11);
+    expect(repositories.page(0).total_count).toBe(13);
   });
 
   it("brings disconnected repositories back when the scenario is reset", () => {
@@ -149,6 +149,6 @@ describe("createMockRepositories", () => {
     expect(
       createMockRepositories({ scenario: scenario("owner"), storage }).page(0)
         .total_count,
-    ).toBe(11);
+    ).toBe(13);
   });
 });

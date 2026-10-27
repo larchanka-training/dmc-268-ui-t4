@@ -13,6 +13,7 @@ const WIRE_REPOSITORY = {
   html_url: "https://github.com/acme/payments",
   connected_at: "2026-09-01T10:00:00.000Z",
   last_run_at: null,
+  organization_id: "org_acme",
 };
 
 /** Answers like the real client: the canned response still has to pass the schema. */
@@ -53,6 +54,7 @@ describe("createHttpConnectedReposApi", () => {
           htmlUrl: "https://github.com/acme/payments",
           connectedAt: "2026-09-01T10:00:00.000Z",
           lastRunAt: null,
+          organizationId: "org_acme",
         },
       ],
       nextCursor: "10",
@@ -70,6 +72,20 @@ describe("createHttpConnectedReposApi", () => {
     const page = await createHttpConnectedReposApi(http).listRepositories({});
 
     expect(page.items[0]?.connectedAt).toBeNull();
+  });
+
+  it("reads a missing organization_id, from an older backend, as null", async () => {
+    const older: Partial<typeof WIRE_REPOSITORY> = { ...WIRE_REPOSITORY };
+    delete older.organization_id;
+    const http = fakeHttp(() => ({
+      items: [older],
+      next_cursor: null,
+      total_count: 1,
+    }));
+
+    const page = await createHttpConnectedReposApi(http).listRepositories({});
+
+    expect(page.items[0]?.organizationId).toBeNull();
   });
 
   it("drops a GitHub link that is not https", async () => {
