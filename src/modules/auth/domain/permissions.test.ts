@@ -94,13 +94,21 @@ describe("canManageRepositoriesOf", () => {
     expect(canManageRepositoriesOf(member, "acct_octocat")).toBe(true);
   });
 
-  it("denies an unknown account, a missing one and a missing session", () => {
+  it("falls back to the current organisation when the account is not known", () => {
+    // An older backend lists only the current organisation and sends no account.
+    expect(canManageRepositoriesOf(session({ role: "owner" }), null)).toBe(
+      true,
+    );
+    expect(canManageRepositoriesOf(session({ role: "member" }), null)).toBe(
+      false,
+    );
+  });
+
+  it("denies an unknown account and a missing session", () => {
     expect(canManageRepositoriesOf(session({ role: "owner" }), "other")).toBe(
       false,
     );
-    expect(canManageRepositoriesOf(session({ role: "owner" }), null)).toBe(
-      false,
-    );
     expect(canManageRepositoriesOf(null, "org1")).toBe(false);
+    expect(canManageRepositoriesOf(null, null)).toBe(false);
   });
 });
