@@ -11,6 +11,17 @@ const ORG = {
   avatar_url: "https://avatars.githubusercontent.com/u/1?v=4",
 } as const;
 
+/** The user's own account, with the app installed on it too. */
+const PERSONAL = {
+  id: "acct_octocat",
+  login: "octocat",
+  name: "Octo Cat",
+  avatar_url: "https://avatars.githubusercontent.com/u/583231?v=4",
+} as const;
+
+export const MOCK_ORGANIZATION_ID = ORG.id;
+export const MOCK_PERSONAL_ACCOUNT = PERSONAL;
+
 export type MockRole = "member" | "owner" | "platform-admin";
 
 /**
@@ -26,8 +37,12 @@ export function sessionFor(role: MockRole, hasOrganization = true) {
       avatar_url: "https://avatars.githubusercontent.com/u/583231?v=4",
       is_platform_admin: role === "platform-admin",
     },
+    // The user owns their personal account whatever their role in "acme".
     organizations: hasOrganization
-      ? [{ ...ORG, role: role === "owner" ? "owner" : "member" }]
+      ? [
+          { ...ORG, role: role === "owner" ? "owner" : "member" },
+          { ...PERSONAL, role: "owner" },
+        ]
       : [],
     current_organization_id: hasOrganization ? ORG.id : null,
   };
@@ -57,6 +72,23 @@ export const REPOSITORIES = [
   // every repository today, but the field may be filled in later.
   connected_at: index % 2 === 0 ? "2026-08-15T10:00:00.000Z" : null,
   last_run_at: typeof lastRunAt === "string" ? lastRunAt : null,
+  organization_id: ORG.id,
+}));
+
+/** Connected repositories of the user's personal account, listed next to "acme". */
+export const PERSONAL_REPOSITORIES = [
+  ["dotfiles", false, "2026-10-01T18:20:00.000Z"],
+  ["side-project", true, null],
+].map(([name, isPrivate, lastRunAt], index) => ({
+  id: `repo_personal_${String(index + 1)}`,
+  owner: PERSONAL.login,
+  name: String(name),
+  private: isPrivate === true,
+  default_branch: "main",
+  html_url: `https://github.com/${PERSONAL.login}/${String(name)}`,
+  connected_at: null,
+  last_run_at: typeof lastRunAt === "string" ? lastRunAt : null,
+  organization_id: PERSONAL.id,
 }));
 
 /** What "connecting" adds in mock mode, one per click, in this order. */

@@ -201,11 +201,11 @@ users outside the organisation.
 
 Permissions:
 
-- Only an organisation **owner** may connect repositories. This is a new action,
-  `repositories:connect`, in `can()`.
-- A member sees the button disabled, with the hint "Only organisation owners can connect
-  repositories".
-- A platform admin follows their organisation role.
+- Anyone signed in may connect repositories (`repositories:connect` in `can()`).
+  `connect-url` is always the app's install page, where GitHub asks which account to
+  install on, so a member of an organisation can still add their personal account.
+  GitHub refuses a member for the organisation on its side. _(Amended: originally owners
+  only, with the button disabled for members; that left no way to add a second account.)_
 
 **The Setup URL**, configured on the GitHub App, is what brings the user back. Two
 settings on the app matter:
@@ -248,9 +248,10 @@ Failure, shown inside the dialog with Retry:
   offered.
 - A network or server error, or an unsafe URL: "Could not open GitHub." with Retry.
 
-Permissions: a new action, `repositories:disconnect`, for organisation **owners** only.
-Members see no Disconnect action at all. The page-level owners-only hint under "Connect
-repository" already explains why (decision 2.22).
+Permissions: `canManageRepositoriesOf(session, repository.organizationId)`, true for an
+**owner of the repository's own account**. Others see no Disconnect action at all
+(decision 2.22). _(Amended: originally the action `repositories:disconnect`, checked
+against the current organisation; the list now holds every account's repositories.)_
 
 Disconnect is offered on the Repositories page only, not in the sidebar's quick list
 (decision 2.23).
@@ -326,7 +327,10 @@ reached only through its `index.ts`.
 7. An owner's "Connect repository" leads to the URL from `connect-url` in the same tab.
    Returning to `/repositories?connected=1` shows the banner once and refreshes the list
    and the sidebar.
-8. A member sees "Connect repository" disabled, with the owners-only hint.
+8. A member sees "Connect repository" enabled; it leads to the app's install page.
+   Repositories from several installations (personal and organisation) show on one page,
+   grouped by account under a heading with the account's name and a Personal or
+   Organisation badge.
 9. A `connect-url` that is neither https nor root-relative is never followed.
 10. Repository links to GitHub appear only for https `html_url`s and open with
     `rel="noreferrer"`.

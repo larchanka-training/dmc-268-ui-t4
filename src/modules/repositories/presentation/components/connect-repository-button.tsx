@@ -1,6 +1,5 @@
 import { cn } from "cn";
 import { Loader2, Plus } from "lucide-react";
-import { useId } from "react";
 
 import { can, currentOrganization, useSession } from "@/modules/auth";
 import { Button } from "@/shared/ui/button";
@@ -8,8 +7,9 @@ import { Button } from "@/shared/ui/button";
 import { useConnectRepository } from "../queries";
 
 /**
- * Sends an owner to GitHub to choose which repositories the app may review. Members see
- * the button disabled with the reason, since GitHub would refuse them anyway.
+ * Sends the user to the app's install page on GitHub, which asks which account to install
+ * on: an organisation they own, or their personal account. So nobody signed in is turned
+ * away here; GitHub refuses a member for an organisation on its side.
  */
 export function ConnectRepositoryButton({
   variant = "default",
@@ -20,11 +20,9 @@ export function ConnectRepositoryButton({
 }) {
   const session = useSession();
   const connect = useConnectRepository();
-  const hintId = useId();
-
   const data = session.data ?? null;
   const isInstalled = data !== null && currentOrganization(data) !== null;
-  const mayConnect = can(data, "repositories:connect") || !isInstalled;
+  const mayConnect = can(data, "repositories:connect");
   const label = isInstalled ? "Connect repository" : "Install the review app";
 
   return (
@@ -33,7 +31,6 @@ export function ConnectRepositoryButton({
         variant={variant}
         size="sm"
         disabled={!mayConnect || connect.isPending}
-        aria-describedby={mayConnect ? undefined : hintId}
         onClick={() => {
           connect.mutate();
         }}
@@ -45,12 +42,6 @@ export function ConnectRepositoryButton({
         )}
         {label}
       </Button>
-
-      {mayConnect ? null : (
-        <p id={hintId} className="text-xs text-content-muted">
-          Only organisation owners can connect repositories.
-        </p>
-      )}
 
       {connect.isError ? (
         <p role="alert" className="flex items-center gap-2 text-xs">
