@@ -8,7 +8,7 @@ const MOCKS_BY_DEFAULT = import.meta.env.MODE === "demo" ? "true" : "false";
  * instead of a blank screen. Nothing else may read import.meta.env directly.
  */
 const envSchema = z.object({
-  VITE_API_BASE_URL: z.string().min(1).default("/api"),
+  VITE_API_BASE_URL: z.string().min(1).default("/api/v1"),
   VITE_ENABLE_MOCKS: z
     .enum(["true", "false"])
     .default(MOCKS_BY_DEFAULT)

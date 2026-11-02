@@ -59,10 +59,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The API lives on the same host behind Caddy, so the relative /api is enough.
+      # The API lives on the same host behind Caddy, so the relative /api/v1 is enough.
       - name: Build
         env:
-          VITE_API_BASE_URL: /api
+          VITE_API_BASE_URL: /api/v1
         run: pnpm build
 
       - name: Set up SSH
