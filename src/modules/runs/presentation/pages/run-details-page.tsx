@@ -11,9 +11,16 @@ import { Skeleton } from "@/shared/ui/skeleton";
 
 import { expandContext } from "../../application/use-cases";
 import { type Finding, groupByFile } from "../../domain/finding";
+import {
+  type FindingFilters,
+  filterFindings,
+  hasActiveFindingFilters,
+} from "../../domain/finding-filters";
 import { isActiveStatus, repositoryName, runDuration } from "../../domain/run";
 import { DiffViewModeToggle } from "../components/diff-view-mode-toggle";
 import { FileFindings } from "../components/file-findings";
+import { FindingsFilters } from "../components/findings-filters";
+import { RunProgress } from "../components/run-progress";
 import { RunRulesCard } from "../components/run-rules-card";
 import { RunStatusBadge } from "../components/run-status-badge";
 import { RunTimeline } from "../components/run-timeline";
@@ -22,11 +29,21 @@ import { useRunsDependencies } from "../dependencies";
 import { useRunDetails, useRunLiveUpdates } from "../queries";
 import { useRunDetailsStore } from "../run-details-store";
 
+export interface RunDetailsPageProps {
+  readonly runId: string;
+  readonly filters: FindingFilters;
+  readonly onFiltersChange: (filters: FindingFilters) => void;
+}
+
 /**
  * Everything one run of the agent did: the pull request it looked at, how long each stage
  * took, the summary it posted and every finding it published, each with its diff.
  */
-export function RunDetailsPage({ runId }: { runId: string }) {
+export function RunDetailsPage({
+  runId,
+  filters,
+  onFiltersChange,
+}: RunDetailsPageProps) {
   const dependencies = useRunsDependencies();
   const details = useRunDetails(runId);
 
@@ -99,7 +116,8 @@ export function RunDetailsPage({ runId }: { runId: string }) {
 
   const { run, findings } = details.data;
   const isActive = isActiveStatus(run.status);
-  const groups = groupByFile(findings);
+  const visibleFindings = filterFindings(findings, filters);
+  const groups = groupByFile(visibleFindings);
 
   return (
     <div className="flex flex-col gap-6">
@@ -116,6 +134,9 @@ export function RunDetailsPage({ runId }: { runId: string }) {
           {`Started ${formatDateTime(run.createdAt)} · ${isActive ? "running for" : "took"} ${formatDuration(runDuration(run))}`}
         </p>
         <SeveritySummary findings={findings} />
+        <div className="max-w-xl pt-1">
+          <RunProgress run={run} />
+        </div>
         <a
           href={run.pullRequest.url}
           target="_blank"
@@ -166,14 +187,28 @@ export function RunDetailsPage({ runId }: { runId: string }) {
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold">
-            {`Published findings (${String(findings.length)})`}
+            {visibleFindings.length === findings.length
+              ? `Published findings (${String(findings.length)})`
+              : `Published findings (${String(visibleFindings.length)} of ${String(findings.length)})`}
           </h2>
           {groups.length === 0 ? null : <DiffViewModeToggle />}
         </div>
 
-        {groups.length === 0 ? (
+        {findings.length === 0 ? null : (
+          <FindingsFilters
+            findings={findings}
+            filters={filters}
+            onChange={onFiltersChange}
+          />
+        )}
+
+        {findings.length === 0 ? (
           <p className="text-sm text-content-muted">
             The agent published no comments for this pull request.
+          </p>
+        ) : groups.length === 0 && hasActiveFindingFilters(filters) ? (
+          <p className="text-sm text-content-muted">
+            No findings match these filters.
           </p>
         ) : (
           groups.map(([path, fileFindings]) => (

@@ -7,6 +7,7 @@ export {
   type RunStatusFilter,
   DEFAULT_RUN_FILTERS,
 } from "./domain/filters";
+export { type FindingFilters } from "./domain/finding-filters";
 export { createHttpRunsRepository } from "./infrastructure/http-runs-repository";
 export { RunsDependenciesProvider } from "./presentation/dependencies";
 export { RunDetailsPage } from "./presentation/pages/run-details-page";
