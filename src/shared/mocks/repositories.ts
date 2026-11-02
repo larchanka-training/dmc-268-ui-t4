@@ -4,7 +4,12 @@ import {
   DISCONNECTED_REPOSITORIES_KEY,
   type MockStorage,
 } from "./session";
-import { REPOSITORIES, REPOSITORIES_TO_CONNECT } from "./state";
+import {
+  MOCK_ORGANIZATION_ID,
+  PERSONAL_REPOSITORIES,
+  REPOSITORIES,
+  REPOSITORIES_TO_CONNECT,
+} from "./state";
 
 const PAGE_SIZE = 10;
 
@@ -18,6 +23,7 @@ interface RepositoryDto {
   readonly html_url: string;
   readonly connected_at: string | null;
   readonly last_run_at: string | null;
+  readonly organization_id: string;
 }
 
 /**
@@ -71,10 +77,11 @@ export function createMockRepositories({
         // null, like the real backend: nothing records when this happened.
         connected_at: null,
         last_run_at: null,
+        organization_id: MOCK_ORGANIZATION_ID,
       }),
     );
     const base: readonly RepositoryDto[] = scenario.hasRepositories
-      ? REPOSITORIES
+      ? [...REPOSITORIES, ...PERSONAL_REPOSITORIES]
       : [];
 
     const removed = disconnectedIds();

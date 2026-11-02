@@ -18,6 +18,8 @@ const repositoryDtoSchema = z.object({
   // installation, and the backend keeps no copy of forge state.
   connected_at: z.iso.datetime().nullable(),
   last_run_at: z.iso.datetime().nullable(),
+  // Optional: an older backend listed one installation and did not send it.
+  organization_id: z.string().min(1).nullable().optional(),
 });
 
 const repositoryPageDtoSchema = z.object({
@@ -40,6 +42,7 @@ function toRepository(dto: z.infer<typeof repositoryDtoSchema>): Repository {
     htmlUrl: httpsUrlOrNull(dto.html_url),
     connectedAt: dto.connected_at,
     lastRunAt: dto.last_run_at,
+    organizationId: dto.organization_id ?? null,
   };
 }
 

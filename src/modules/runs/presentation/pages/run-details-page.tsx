@@ -115,6 +115,7 @@ export function RunDetailsPage({
   }
 
   const { run, findings } = details.data;
+  const isActive = isActiveStatus(run.status);
   const visibleFindings = filterFindings(findings, filters);
   const groups = groupByFile(visibleFindings);
 
@@ -130,7 +131,7 @@ export function RunDetailsPage({
           {`${repositoryName(run.pullRequest)} #${String(run.pullRequest.number)} · ${run.pullRequest.author} · ${run.pullRequest.headRef} → ${run.pullRequest.baseRef} · ${run.pullRequest.headSha.slice(0, 7)}`}
         </p>
         <p className="text-xs text-content-muted">
-          {`Started ${formatDateTime(run.createdAt)} · took ${formatDuration(runDuration(run))}`}
+          {`Started ${formatDateTime(run.createdAt)} · ${isActive ? "running for" : "took"} ${formatDuration(runDuration(run))}`}
         </p>
         <SeveritySummary findings={findings} />
         <div className="max-w-xl pt-1">
@@ -168,7 +169,10 @@ export function RunDetailsPage({
         <div className="flex flex-col gap-2 rounded-md border border-border bg-surface p-4">
           <h2 className="text-sm font-semibold">Review summary</h2>
           <p className="text-sm whitespace-pre-line text-content-muted">
-            {run.summary ?? "The agent has not posted a summary yet."}
+            {run.summary ??
+              (isActive
+                ? "The agent posts a summary when the review is done."
+                : "No summary was recorded for this run.")}
           </p>
         </div>
 

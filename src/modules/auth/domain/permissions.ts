@@ -5,7 +5,6 @@ export type Action =
   | "billing:view"
   | "billing:manage"
   | "repositories:connect"
-  | "repositories:disconnect"
   | "admin:view";
 
 /**
@@ -21,20 +20,43 @@ export function can(session: Session | null, action: Action): boolean {
     return session.user.isPlatformAdmin;
   }
 
+  // Connecting leads to the app's install page, where GitHub asks which account to
+  // install on. A member of an organisation can still pick their own account there.
+  if (action === "repositories:connect") {
+    return true;
+  }
+
   const organization = currentOrganization(session);
 
   if (organization === null) {
     return false;
   }
 
-  // On GitHub only owners may change which repositories an installation can access.
-  if (
-    action === "billing:manage" ||
-    action === "repositories:connect" ||
-    action === "repositories:disconnect"
-  ) {
+  if (action === "billing:manage") {
     return organization.role === "owner";
   }
 
   return true;
+}
+
+/**
+ * Whether the user may change which repositories an installation can access: on GitHub
+ * only an owner of that account may. Per account rather than for the current one, since
+ * the repository list holds every installation the user can see. A null account comes
+ * from a backend that listed only the current organisation, so that one is checked.
+ */
+export function canManageRepositoriesOf(
+  session: Session | null,
+  organizationId: string | null,
+): boolean {
+  if (session === null) {
+    return false;
+  }
+
+  const organization =
+    organizationId === null
+      ? currentOrganization(session)
+      : session.organizations.find((item) => item.id === organizationId);
+
+  return organization?.role === "owner";
 }
