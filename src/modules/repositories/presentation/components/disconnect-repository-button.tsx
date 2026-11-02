@@ -1,7 +1,7 @@
 import { Loader2, Unplug } from "lucide-react";
 import { useState } from "react";
 
-import { can, useSession } from "@/modules/auth";
+import { canManageRepositoriesOf, useSession } from "@/modules/auth";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -18,8 +18,8 @@ import { DisconnectFailure, useDisconnectRepository } from "../queries";
 
 /**
  * Removing a repository happens on GitHub, so this only confirms the intent and hands the
- * owner over. Members get nothing to click: GitHub would refuse them, and the owners-only
- * hint next to "Connect repository" already says why.
+ * owner over. Only an owner of the repository's account gets the button: GitHub would
+ * refuse anyone else.
  */
 export function DisconnectRepositoryButton({
   repository,
@@ -30,7 +30,9 @@ export function DisconnectRepositoryButton({
   const disconnect = useDisconnectRepository();
   const [isOpen, setIsOpen] = useState(false);
 
-  if (!can(session.data ?? null, "repositories:disconnect")) {
+  if (
+    !canManageRepositoriesOf(session.data ?? null, repository.organizationId)
+  ) {
     return null;
   }
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { isSafeConnectUrl } from "./connect-url";
 import {
   type Repository,
+  groupByOrganization,
   recentlyReviewed,
   sidebarSlice,
   sortByFullName,
@@ -12,6 +13,7 @@ function repository(
   owner: string,
   name: string,
   lastRunAt: string | null = null,
+  organizationId: string | null = null,
 ): Repository {
   return {
     id: `${owner}/${name}`,
@@ -23,6 +25,7 @@ function repository(
     htmlUrl: null,
     connectedAt: null,
     lastRunAt,
+    organizationId,
   };
 }
 
@@ -106,5 +109,37 @@ describe("isSafeConnectUrl", () => {
     "",
   ])("rejects %s", (url) => {
     expect(isSafeConnectUrl(url)).toBe(false);
+  });
+});
+
+describe("groupByOrganization", () => {
+  it("keeps the list order inside a group and orders groups by first appearance", () => {
+    const groups = groupByOrganization([
+      repository("acme", "api", null, "org_acme"),
+      repository("acme", "web", null, "org_acme"),
+      repository("octocat", "blog", null, "acct_octocat"),
+      repository("octocat", "dotfiles", null, "acct_octocat"),
+    ]);
+
+    expect(
+      groups.map((group) => [group.organizationId, names(group.repositories)]),
+    ).toEqual([
+      ["org_acme", ["acme/api", "acme/web"]],
+      ["acct_octocat", ["octocat/blog", "octocat/dotfiles"]],
+    ]);
+  });
+
+  it("puts repositories without an account into one group", () => {
+    const groups = groupByOrganization([
+      repository("acme", "api"),
+      repository("acme", "web"),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.organizationId).toBeNull();
+  });
+
+  it("has no groups for an empty list", () => {
+    expect(groupByOrganization([])).toEqual([]);
   });
 });

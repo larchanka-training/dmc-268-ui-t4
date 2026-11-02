@@ -6,7 +6,11 @@ export {
   type SignInOutcome,
   completeSignIn,
 } from "./application/use-cases";
-export { type Action, can } from "./domain/permissions";
+export {
+  type Action,
+  can,
+  canManageRepositoriesOf,
+} from "./domain/permissions";
 export {
   type Organization,
   type Session,
