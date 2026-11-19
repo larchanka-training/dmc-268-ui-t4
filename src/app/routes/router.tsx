@@ -23,6 +23,7 @@ import {
   signInDestination,
 } from "@/modules/auth";
 import { BillingPage, PricingPage } from "@/modules/billing";
+import { PlaygroundPage } from "@/modules/playground";
 import {
   RepositoriesPage,
   announceRepositoriesConnected,
@@ -254,6 +255,12 @@ const runDetailsRoute = createRoute({
   },
 });
 
+const playgroundRoute = createRoute({
+  getParentRoute: () => consoleRoute,
+  path: "/playground",
+  component: PlaygroundPage,
+});
+
 const billingRoute = createRoute({
   getParentRoute: () => consoleRoute,
   path: "/billing",
@@ -292,6 +299,7 @@ const routeTree = rootRoute.addChildren([
     repositoriesRoute,
     runsRoute,
     runDetailsRoute,
+    playgroundRoute,
     billingRoute,
     adminRoute,
   ]),

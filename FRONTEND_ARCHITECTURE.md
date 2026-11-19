@@ -63,6 +63,7 @@ src/
     billing/                 plans and subscription (placeholder screens)
     runs/                    agent runs, findings, run details
     repositories/            connected repositories, connecting more via GitHub
+    playground/              drafting .review/rules.md against the review's own parser
     admin/                   platform admin area (lazy, isolated)
       domain/ application/ infrastructure/ presentation/ index.ts
   shared/

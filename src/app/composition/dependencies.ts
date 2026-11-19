@@ -5,6 +5,10 @@ import {
   createHttpSessionRepository,
 } from "@/modules/auth";
 import {
+  type PlaygroundDependencies,
+  createHttpPlaygroundRepository,
+} from "@/modules/playground";
+import {
   type RepositoriesDependencies,
   createHttpConnectedReposApi,
 } from "@/modules/repositories";
@@ -30,6 +34,7 @@ export interface AppDependencies {
   readonly auth: AuthDependencies;
   readonly runs: RunsDependencies;
   readonly repositories: RepositoriesDependencies;
+  readonly playground: PlaygroundDependencies;
 }
 
 /**
@@ -66,5 +71,6 @@ export function createAppDependencies({
     },
     runs: { runs: createHttpRunsRepository(http, env.apiBaseUrl) },
     repositories: { repositories: createHttpConnectedReposApi(http) },
+    playground: { playground: createHttpPlaygroundRepository(http) },
   };
 }

@@ -44,6 +44,14 @@ export function PrimaryNav({
         Runs
       </Link>
       <Link
+        to="/playground"
+        activeProps={NAV_LINK_ACTIVE}
+        className={NAV_LINK}
+        onClick={onNavigate}
+      >
+        Playground
+      </Link>
+      <Link
         to="/billing"
         activeProps={NAV_LINK_ACTIVE}
         className={NAV_LINK}

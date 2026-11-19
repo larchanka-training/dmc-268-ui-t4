@@ -3,6 +3,7 @@ import { createMemoryHistory } from "@tanstack/react-router";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type Session, type SessionRepository } from "@/modules/auth";
+import { type PlaygroundRepository } from "@/modules/playground";
 import {
   type ConnectedReposApi,
   repositoriesQueryKeys,
@@ -37,6 +38,8 @@ const NO_ORGANIZATION: Session = {
 function notUsed(): never {
   throw new Error("The repositories are not loaded by the routes themselves");
 }
+
+const playground: PlaygroundRepository = { parseRules: notUsed };
 
 const runs: RunsRepository = {
   listActiveRuns: notUsed,
@@ -79,6 +82,7 @@ async function navigate(
     },
     runs: { runs },
     repositories: { repositories },
+    playground: { playground },
   };
   const history = createMemoryHistory({
     initialEntries: previous === undefined ? [url] : [previous, url],
