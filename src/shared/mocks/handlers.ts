@@ -1,6 +1,7 @@
 import { HttpResponse, http, sse } from "msw";
 
 import { type MockJobEvent, createMockActiveJob } from "./active-job";
+import { isOverRulesLimit, mockParseRules } from "./playground";
 import { createMockRepositories } from "./repositories";
 import { mockJobRules } from "./rules";
 import { currentScenario } from "./scenario";
@@ -256,6 +257,29 @@ export const handlers = [
     return job === undefined
       ? notFound()
       : HttpResponse.json(mockJobRules(job));
+  }),
+
+  // The backend parses with the review's own parser; nothing is stored either way.
+  http.post(`${BASE}/playground/rules/parse`, async ({ request }) => {
+    if (!session.authorize()) {
+      return unauthorized();
+    }
+
+    const body: unknown = await request.json().catch(() => null);
+    const markdown =
+      typeof body === "object" && body !== null && "rules_markdown" in body
+        ? body.rules_markdown
+        : null;
+
+    if (typeof markdown !== "string") {
+      return HttpResponse.json({ error: "invalid_body" }, { status: 400 });
+    }
+
+    if (isOverRulesLimit(markdown)) {
+      return HttpResponse.json({ error: "rules_too_large" }, { status: 413 });
+    }
+
+    return HttpResponse.json(mockParseRules(markdown));
   }),
 
   // Rebuilt from the forge in reality; a finding on a commit that is gone answers 409.

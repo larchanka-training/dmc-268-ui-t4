@@ -36,7 +36,7 @@ src/
   app/                    composition root: DI provider, router, guards, theme, env,
                           the console shell (layouts/) and cross-module pages (pages/)
   modules/
-    auth|billing|runs|repositories/  domain/ application/ infrastructure/ presentation/ index.ts
+    auth|billing|runs|repositories|playground/  domain/ application/ infrastructure/ presentation/ index.ts
     admin/                isolated, lazily loaded by the router only
   shared/
     diff/                 diff viewer: domain/ + presentation/

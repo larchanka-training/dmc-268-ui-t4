@@ -742,3 +742,46 @@ Files: `src/modules/auth/domain/sign-in.ts` (`CONSOLE_HOME_PATH`, `signInDestina
 `src/app/routes/router.tsx` (the `/auth/success` redirect), the removed
 `sign-in-success-page.tsx` and `sign-out-button.tsx` (it was used only there; the account
 menu signs out on its own), and the tests in `sign-in.test.ts` and `router.test.ts`.
+
+## Task 4 — Rules playground (issue #53, rules editor)
+
+### 5.1 The editor
+
+The issue asks for a rules editor with syntax highlighting and hints in place.
+
+- **✔** CodeMirror 6 (`@codemirror/state`, `view`, `commands`, `language`, `lint`), with
+  `@lezer/highlight` for the highlight tags, loaded lazily with the editor component.
+- A `<textarea>` with a line-number gutter drawn beside it.
+- Monaco.
+
+Why: the hints are lint markers on line ranges, which CodeMirror's `lint` package draws
+and keeps on their lines while the user types; a textarea would need all of that by hand.
+Monaco is several megabytes and needs web workers. The editor is loaded with
+`React.lazy`, so CodeMirror (104 kB gzipped) is a chunk of its own and the console's main
+bundle is unchanged. The page imports the editor's prop types from `editor-types.ts`:
+with `verbatimModuleSyntax` even a type-only import from `rules-editor.tsx` would keep the
+module in the main chunk.
+
+### 5.2 Highlighting without a Markdown grammar
+
+- **✔** A small `StreamLanguage` (`rules-language.ts`) for what the review's parser reads:
+  heading marks and titles, list marks, inline code and HTML comments.
+- `@codemirror/lang-markdown`.
+
+Why: `lang-markdown` brings the HTML, CSS and JavaScript grammars along for HTML blocks
+(the editor chunk was 187 kB gzipped with it, 104 kB without), and highlighting what the
+parser ignores would suggest it matters.
+
+### 5.3 Parsing on the backend, as you type
+
+- **✔** `POST /playground/rules/parse` after a 300 ms pause in typing, keyed by the text in
+  TanStack Query, the previous answer kept on screen while the next one loads. A draft
+  over 64 KB is answered in the client without a request.
+- Parse in the browser with a port of the parser.
+
+Why: the backend's parser is what a review uses, so the editor cannot disagree with a
+review. A port would drift. The MSW handler (`src/shared/mocks/playground.ts`) is such a
+port for the mocks only, checked against the backend's own test case.
+
+Files: `src/modules/playground/`, `src/shared/mocks/playground.ts`, the route and nav link
+in `src/app/`.
